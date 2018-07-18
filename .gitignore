@@ -1,6 +1,11 @@
 *.png
 TestParticleDynFric-master/TestParticleDynFric-master/back_sag_ben_present/out.mp4
 TestParticleDynFric-master/TestParticleDynFric-master/correct_sag_forwards/outputBack.dat
+TestParticleDynFric-master/TestParticleDynFric-master/*/*
 *.mp4
 *.tar
 *.bz2
+*.f90
+*.exe
+*.mod
+TestParticleDynFric-master/TestParticleDynFric-master/fdf.pro

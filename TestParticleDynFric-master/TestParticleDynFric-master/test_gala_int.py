@@ -24,7 +24,27 @@ from gala.units import galactic
 
 import random
 
+# import debug_gala
+
 print('done')
+
+# Helper Functions:
+
+def file_string(m, r, v, x, y, z, vx, vy, vz):
+    return '%15.5e' % m + \
+           '%15.5e' % r + \
+           '%15.5e' % v + \
+           '%15.5e' % x + \
+           '%15.5e' % y + \
+           '%15.5e' % z + \
+           '%15.5e' % vx + \
+           '%15.5e' % vy + \
+           '%15.5e' % vz + '\n'
+
+def hernquist_menc(mtot, r, c):
+    return mtot * r * r / (r + c) / (r + c)
+
+# Main Functions
 
 def read_particles(file_name = 'centroid_part_1000'):
     part_file = open(file_name)
@@ -39,7 +59,7 @@ def read_particles(file_name = 'centroid_part_1000'):
 
     return particle_list
 
-def orbit_video(orb):
+def orbit_video(orb, folder_name):
     save_counter = 10000
 
     orb_arr = [o for o in orb]
@@ -67,35 +87,12 @@ def orbit_video(orb):
         plt.gca().set_aspect('equal', adjustable='box')
         
         curr_fig.savefig(\
-            'gaiavideos\\test_right_params\\p' + str(save_counter)[1:] + '.png')
+            'gaiavideos\\' + folder_name + '\\p' + str(save_counter)[1:] + '.png')
         curr_fig.clear()
         plt.close(curr_fig)
         save_counter = save_counter + 1
         print((save_counter - 10000), end = ' ')
     print('Saved images')
-
-def plot_pot(potential):
-
-    pot_file = open('potn.txt')
-
-    counter = 1
-    lines = []
-    for line in pot_file:
-        if line[0] == '#':
-            continue
-        rad, ben_phi = [float(val) for val in line.split()]
-        pot_phi = potential.acceleration(\
-            [rad, 0, 0] * u.kpc).to(u.cm / u.s / u.s).value[0][0]
-        lines.append("%15.5e %15.5e %15.5e %15.5e" %\
-                     (rad, ben_phi, pot_phi, ben_phi / pot_phi))
-        if counter % 100 == 0:
-            print('.', end = '')
-        counter = counter + 1            
-    
-    pot_file.close()
-
-    for i in range(0, 50):
-        print(lines[i*100])
 
 def calc_com(part_mass, orbit, pot):
 
@@ -174,16 +171,21 @@ def calc_com(part_mass, orbit, pot):
     #return CartesianRepresentation(np.average(bound_xs), np.average(bound_ys), np.average(bound_zs)),\
     #       CartesianDifferential((np.average(bound_vxs), np.average(bound_vys), np.average(bound_vzs)))
 
-def calc_dps(part_mass, orbit, pot, com_index):
-
-    m_mw = 130.0075e10 * u.Msun
-    c_mw = 32.089 * u.kpc
+def calc_dps(part_mass, orbit, pot, com_index, \
+             m_mw = 130.0075e10 * u.Msun, \
+             c_mw = 32.089 * u.kpc, \
+             ylims = [0.1, 500], \
+             plot_title = 'Dps of 10 particles (within 0.5 * tidal radius)',\
+             show_plot=True,\
+             verbose=True):
 
     #com_p, com_v, com_index = calc_com(part_mass, orbit, pot)
     #com_index = 296
     #print(com_p)
     #print(com_v)
-    print(com_index)
+    if verbose:
+        print(m_mw, c_mw)
+        print(com_index)
 
     tidal_radii = []
     escape_velocities = []
@@ -209,23 +211,22 @@ def calc_dps(part_mass, orbit, pot, com_index):
     list_ps_indices = []
     num_particles = len(orbit[0].pos)
 
-    print('normalizing positions and velocities ... ')
+    if verbose:
+        print('normalizing positions and velocities ... ')
 
     pos_table = orbit.pos.xyz.value
     vel_table = orbit.vel.d_xyz.value
 
-    print(pos_table.shape)
-    print(type(pos_table))
-    print(type(vel_table))
-
-    print(type(pos_table[0][0][0]))
+    if verbose:
+        print(pos_table.shape)
 
     #for part_index in range(num_particles):
     for part_index in range(num_particles):
-        if part_index == com_index:
-            continue
-        if part_index % 10 == 0:
-            print('part_index', part_index)
+        if verbose:
+            if part_index == com_index:
+                continue
+            if part_index % 10 == 0:
+                print('part_index', part_index)
         
         ps_vectors[part_index] = {}
         for ts in range(orbit.ntimes):
@@ -240,8 +241,6 @@ def calc_dps(part_mass, orbit, pot, com_index):
             ps_vectors[part_index][ts] = np.array(\
                 [pos_x, pos_y, pos_z, vel_x, vel_y, vel_z])
 
-    #print(ps_vectors[0][0])
-    #print(ps_vectors[0][1])
 
     # find the minimum ps_vector magnitude for each particle
 
@@ -249,11 +248,12 @@ def calc_dps(part_mass, orbit, pot, com_index):
     min_ps_vects = {}
 
     for part_index in range(num_particles):
-        if part_index == com_index:
-            continue
+        if verbose:
+            if part_index == com_index:
+                continue
 
-        if part_index % 10 == 0:
-            print('mix dps vect', part_index)
+            if part_index % 10 == 0:
+                print('mix dps vect', part_index)
 
         curr_part = ps_vectors[part_index]
 
@@ -270,17 +270,18 @@ def calc_dps(part_mass, orbit, pot, com_index):
 
     # append the minimum ps-vector magnitude for each particle to a matrix        
     min_matrix = np.array(list(min_ps_vects.values()))
-    print(min_matrix[:10])
 
     # find the covariance matrix
     #   transpose the matrix and call np.cov()
     cov_mat = np.cov(min_matrix.T)
-    print('Covariance Matrix')
-    print(cov_mat)
+    if verbose:
+        print('Covariance Matrix')
+        print(cov_mat)
     
     # calculate the determinant (np.linalg.det())
+    toreturn = np.linalg.det(cov_mat)
     print('Determinant')
-    print(np.linalg.det(cov_mat))
+    print(toreturn)
     
     # calculate the minimum magnitude of this dps vector
 
@@ -292,35 +293,36 @@ def calc_dps(part_mass, orbit, pot, com_index):
     # plot the dps (log on the yscale, ylim is [0.1, 50], xlim is [0, 2650] - that should be different
     # plt.hlines(2, 0, 2650, linestyles = 'dashed'
 
-    timesteps = list(range(orbit.ntimes))
-    ts_list_myr = [-2650.0 * ts / len(timesteps) for ts in timesteps]
+    if show_plot:
+        timesteps = list(range(orbit.ntimes))
+        ts_list_myr = [-2650.0 * ts / len(timesteps) for ts in timesteps]
 
-    for part_index in part_indices:
-        dps_vals = [np.linalg.norm(ps_vectors[part_index][ts]) for ts in timesteps]
+        for part_index in part_indices:
+            dps_vals = [np.linalg.norm(ps_vectors[part_index][ts]) for ts in timesteps]
 
-        min_dps_index = dps_vals.index(min(dps_vals))
-        min_dps_time = -2650.0 * min_dps_index / len(timesteps)
-        curr_min_dps = min(dps_vals)
+            min_dps_index = dps_vals.index(min(dps_vals))
+            min_dps_time = -2650.0 * min_dps_index / len(timesteps)
+            curr_min_dps = min(dps_vals)
 
-        curr_line = plt.plot(ts_list_myr, dps_vals, lw=0.5)
-        print(curr_line[0].get_c())
-        plt.plot([min_dps_time], [curr_min_dps], marker='+', c='black', markersize=10.0, mew=1.5, zorder = 10)
+            curr_line = plt.plot(ts_list_myr, dps_vals, lw=0.5)
+            print(curr_line[0].get_c())
+            plt.plot([min_dps_time], [curr_min_dps], marker='+', c='black', markersize=10.0, mew=1.5, zorder = 10)
 
-    plt.hlines(2, min(ts_list_myr), max(ts_list_myr), linestyles = 'dashed')
+        plt.hlines(2, min(ts_list_myr), max(ts_list_myr), linestyles = 'dashed')
 
-    plt.title('Dps of 10 particles (within 0.5 * tidal radius)')
-    plt.ylabel('Dps magnitude')
-    plt.xlabel('Time (Myr, 0 = present)')
-    plt.yscale('log')
-    plt.ylim([0.1, 500])
-    plt.xlim([min(ts_list_myr), max(ts_list_myr)])
-    plt.show()
-        
+        plt.title(plot_title)
+        plt.ylabel('Dps magnitude')
+        plt.xlabel('Time (Myr, 0 = present)')
+        plt.yscale('log')
+        plt.ylim(ylims)
+        plt.xlim([min(ts_list_myr), max(ts_list_myr)])
+        plt.show()
 
-def integrate(input_file = 'heavy_sag_core', sat_mass = 1e8):
-    pot = gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic)
-    #pot = gp.NFWPotential(m=130e10*u.Msun,r_s = 18.9*u.kpc, units=galactic)
-    #pot = gp.MilkyWayPotential()
+    return toreturn
+
+def integrate(input_file = 'heavy_sag_core', \
+              sat_mass = 1e8, \
+              pot = gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic)):
 
     particle_list = read_particles(input_file)
 
@@ -346,20 +348,119 @@ def integrate(input_file = 'heavy_sag_core', sat_mass = 1e8):
     print('done integrating')
     print('Length of integration: %1.3f' % orbit_time)
     
-    #orbit[0].plot(['x', 'y'], s = 4.0, edgecolors='none', color = 'black').show()
-    xs = orbit[0].pos[:10]
-    print(xs)
-    print(type(xs))
+    return orbit, pot
 
     #plt.hist2d(xs, ys, bins = 30)
     #plt.show()
     #orbit_video(orbit)
     #plot_bound_parts(1e8 / 1000, orbit[-1].pos, orbit[-1].vel, pot)
-    com_p, com_v, com_index = calc_com(sat_mass / num_particles, orbit, pot)
+    #com_p, com_v, com_index = calc_com(sat_mass / num_particles, orbit, pot)
     #print(com_p, com_v, com_index)
     #com_index = 296
-    calc_dps(sat_mass / num_particles, orbit, pot, com_index)
+    #calc_dps(sat_mass / num_particles, orbit, pot, com_index)
     #print(orbit.t)
+
+def integrate_dyn_fric(input_file = 'heavy_sag_core', \
+              sat_mass = 1e8, \
+              pot = gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
+              scale_radius = 18.927757889861788):
+    particle_list = read_particles(input_file)
+
+    num_particles = len(particle_list)
+
+    particle_list = np.transpose(particle_list).tolist()
+
+    #print(particle_list[0] * u.kpc)
+
+    positions = [particle_list[i] for i in range(0, 3)] * u.kpc
+    velocities = [particle_list[i] for i in range(3, 6)] * (u.km / u.s)
+
+    velocities = velocities.to(u.kpc / u.Myr)
+
+    #positions = [[10, -10],[0,0],[0,0]] * u.kpc
+    #velocities = [[0, 0], [-100, 100], [0,0]] * (u.km / u.s)
+
+    w0 = gd.PhaseSpacePosition(pos=positions, vel=velocities)
+
+    def F_dyn_fric(t, w, msat, rs):
+        G_gal = 4.49850215e-12 # gravitational constant in galactic units (kpc^3 Msun^-1 Myr^-2)
+        accdf = 0.0
+        
+        q = w[0:3]
+        p = w[3:6]
+
+        verf = np.vectorize(math.erf)
+
+        absr = np.linalg.norm(q, axis=0)
+        absv = np.linalg.norm(p, axis=0)
+
+        loglambda = np.maximum(0, np.log(absr / 3 / 1.6))
+        rhoh = pot.density(q).value
+
+        normalized_r = absr / rs
+
+        sigma = 0.2199 * ( 1.4393 * normalized_r ** 0.354 / (1 + 1.1756 * normalized_r ** 0.725) )
+
+        chand_x = absv / math.sqrt(2) / sigma
+
+        # k is the part of the equation with the erf and exp components
+        k = verf(chand_x) - 2 * chand_x * np.exp(- np.square(chand_x)) / math.sqrt(math.pi)
+
+        accdf = (-4 * math.pi * G_gal * G_gal * msat * loglambda * rhoh / absv**3) * k * p
+        
+        q_dot = p
+        p_dot = -pot.gradient(q).value + accdf
+        
+
+        toreturn = np.concatenate((q_dot, p_dot))
+        
+        return toreturn
+
+    def F(t, w):
+        q = w[0:3]
+        p = w[3:6]
+
+        q_dot = p
+        p_dot = -pot.gradient(q).value
+        
+        toreturn = np.concatenate((q_dot, p_dot))
+
+        return toreturn
+        
+
+    test_pos = w0[1].pos
+    test_vel = w0[1].vel
+
+    test_w = np.array([[test_pos.x.value],[test_pos.y.value],[test_pos.z.value], \
+              [test_vel.d_x.value],[test_vel.d_y.value],[test_vel.d_z.value]])
+
+    print(test_w)
+    
+    print('x at 0', test_w[0:3])
+    print('v at 0', test_w[3:6])
+
+    print('rhoh at x', pot.density(test_w[0:3] * u.kpc))
+
+    print('F val', F(0.0, test_w))
+
+    print('F_dyn', F_dyn_fric(0.0, test_w, sat_mass, scale_radius))
+
+    print('F val - F_dyn', F(0.0, test_w) - F_dyn_fric(0.0, test_w, sat_mass, scale_radius))
+        
+
+    integrator = gi.LeapfrogIntegrator(F_dyn_fric, func_args = (sat_mass, scale_radius), func_units = galactic)
+    #integrator = gi.LeapfrogIntegrator(F, func_units = galactic)
+
+    print('integrating ... ')
+    
+    start_time = time.time()
+    orbit = integrator.run(w0,dt=-10.67, n_steps = 250)
+    
+    orbit_time = time.time() - start_time
+    print('done integrating')
+    print('Length of integration: %1.3f' % orbit_time)
+    
+    return orbit, pot
 
 def plot_bound_parts(part_mass, coords, vels, pot):
     bound_parts = []
@@ -487,74 +588,14 @@ def plot_bound_parts(part_mass, coords, vels, pot):
     plt.xlabel('Binding energy of the particle (erg)')
     plt.show()
 
-def test_pot_mass(pot):
-
-    accs = []
-    for i in range(1, 100):
-        r = i * u.kpc
-        print('radius', i)
-        #a = pot.acceleration(i * u.kpc)
-        #accs.append((r, a))
-
-        print(i, end = ' ')
-        m = hernquist_menc(130.0075e10 * u.Msun, r,  32.089 * u.kpc)
-        print('%1.3e' % m.value)
-        
-        #print(a)
-        #print(pot.mass_enclosed(i * u.kpc))
-
-        #print((-a * r * r / G).to(u.Msun))
-
-    #print(accs)
-
-    #for r, a in accs:
-    #    print((-a * r * r / G).to(u.Msun))
-
-def hernquist_menc(mtot, r, c):
-    return mtot * r * r / (r + c) / (r + c)
-
 def select_in_tidal_radius():
     sat_mass = 1e8
-    
-    pot = gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic)
 
-    particle_list = read_particles('parts_tidal_radius')
-
-    particle_list = np.transpose(particle_list).tolist()
-
-    #print(particle_list[0] * u.kpc)
-
-    positions = [particle_list[i] for i in range(0, 3)] * u.kpc
-    velocities = [particle_list[i] for i in range(3, 6)] * (u.km / u.s)
-
-    w0 = gd.PhaseSpacePosition(pos=positions, vel=velocities)
-
-
-    print('integrating ... ')
-    start_time = time.time()
-    orbit = gp.Hamiltonian(pot).integrate_orbit(w0,dt=-10.67, n_steps = 250)
-    orbit_time = time.time() - start_time
-    print('done integrating')
-    print('Length of integration: %1.3f' % orbit_time)
-
-    #orbit[0].plot().show()
-
-    print(orbit.shape[1])
+    orbit, pot = integrate(input_file='parts_tidal_radius',sat_mass=sat_mass) # mass = 1e8
 
     com_p, com_v, com_index = calc_com(sat_mass / orbit.shape[1], orbit, pot)
 
     calc_dps(sat_mass / orbit.shape[1], orbit, pot, com_index)
-
-def file_string(m, r, v, x, y, z, vx, vy, vz):
-    return '%15.5e' % m + \
-           '%15.5e' % r + \
-           '%15.5e' % v + \
-           '%15.5e' % x + \
-           '%15.5e' % y + \
-           '%15.5e' % z + \
-           '%15.5e' % vx + \
-           '%15.5e' % vy + \
-           '%15.5e' % vz + '\n'
 
 def write_tidal_radius_file(r_ratio = 0.5, sat_mass=1e8*u.Msun, in_file = 'centroid_part_1000', out_file_name = 'parts_tidal_radius'):
     print('Writing Tidal Radius File')
@@ -634,20 +675,109 @@ def write_tidal_radius_file(r_ratio = 0.5, sat_mass=1e8*u.Msun, in_file = 'centr
 
     print('done!')
 
+def run_heavy_sag():
+    sat_mass = 1e10 # Msun
+
+    #orbit, pot = integrate(input_file='heavy_sag_core',sat_mass=sat_mass)
+    orbit, pot = integrate(input_file='heavy_sag_7_10',sat_mass=sat_mass)
+
+    com_p, com_v, com_index = calc_com(sat_mass / orbit.shape[1], orbit, pot)
+
+    calc_dps(sat_mass / orbit.shape[1], orbit, pot, com_index, ylims = [0.1, 500], plot_title = 'Dps of 10 particles (within 0.5 * tidal radius, M*=10^10 Msun)')
+
+def run_normal_sag(m_p, m_c):
+    sat_mass = 1e8 # Msun
+
+    mw_mass = m_p*130.0075e10*u.Msun
+    mw_c = m_c*32.089 * u.kpc
+
+    pot = gp.HernquistPotential(m=mw_mass,c =mw_c, units=galactic)
+
+    #orbit, pot = integrate(input_file='centroid_part_1000',sat_mass=sat_mass, pot=pot)
+    orbit, pot = integrate(input_file='parts_tidal_radius',sat_mass=sat_mass)
+
+    com_p, com_v, com_index = calc_com(sat_mass / orbit.shape[1], orbit, pot)
+
+    calc_dps(sat_mass / orbit.shape[1], orbit, pot, com_index, \
+             m_mw=mw_mass, c_mw = mw_c, ylims = [0.1, 500], \
+             plot_title = 'Dps of 10 particles (Full Stream, M*=10^8 Msun)', \
+             show_plot = False, verbose = False)
+
+def test_dyn_fric():
+    sat_mass = 1e8 # Msun
+
+    mw_conc = 9.39
+    mw_r_scale = 18.927757889861788 * u.kpc
+
+    mw_mass = 130.0075e10*u.Msun
+    #mw_c = 32.089 * u.kpc
+    a_term = math.sqrt(2 * (math.log(1 + mw_conc) - mw_conc / (1+mw_conc)))
+    mw_c = mw_r_scale * a_term
+
+    print(a_term)
+    print('mw_c', mw_c)
+
+    pot = gp.HernquistPotential(m=mw_mass,c =mw_c, units=galactic)
+
+    print('density', pot.density([1, 1, 1] * u.kpc))
+
+    #orbit, pot = integrate(input_file='centroid_part_1000',sat_mass=sat_mass, pot=pot)
+    orbit, pot = integrate(input_file='centroid_part_1000',sat_mass=sat_mass, pot=pot)
+    orbit_dyn, pot_dyn = integrate_dyn_fric(input_file='centroid_part_1000',sat_mass=sat_mass, pot=pot, scale_radius=mw_r_scale.value)
+
+    orbit[-1].plot().show()
+    #orbit[0].plot().show()
+
+    orbit_dyn[-1].plot().show()
+    #orbit_dyn[0].plot().show()
+
+    #orbit_video(orbit, 'force_func_int')
+
+    norm_parts = np.square(orbit[-1].pos.xyz - orbit_dyn[-1].pos.xyz)
+
+    norm_rs = np.sqrt(norm_parts[0] + norm_parts[1] + norm_parts[2])
+
+    print(norm_rs[0:10])
+
+    print(np.average(norm_rs))
+    
+
+    
+
+def run_sag(file_name, sag_mass, mw_mass, mw_c):
+    pass
     
 def __main__():
     test_c = 32.089
     test_m = 130.0075
     pot = gp.HernquistPotential(m=test_m*1e10*u.Msun,c =test_c, units=galactic)
 
-    #plot_pot(pot)
 
-    #integrate()
-    #test_pot_mass(pot)
-
-    #write_tidal_radius_file()
-    #select_in_tidal_radius()
     #write_tidal_radius_file(sat_mass=1e9*u.Msun, in_file='heavy_sag_7_10', out_file_name='heavy_sag_core')
-    integrate(input_file='heavy_sag_core',sat_mass=1e9)
+    #integrate(input_file='heavy_sag_core',sat_mass=1e9)
+
+    #select_in_tidal_radius()
+
+    test_dyn_fric()
+
+    if False:
+
+        p_m = 0.9
+        p_c = 1.1
+
+        det_mat = []
+
+        for p_m in [0.8, 0.9, 1.0, 1.1, 1.2]:
+            det_list = []
+            for p_c in [0.8, 0.9, 1.0, 1.1, 1.2]:            
+                print('M =', p_m)
+                print('c =', p_c)
+                det = run_normal_sag(p_m, p_c)
+                print('det:', det)
+                #run_heavy_sag()
+                det_list.append(det)
+            det_mat.append(det_list)
+
+        print(np.array(det_mat))
 
 __main__()
