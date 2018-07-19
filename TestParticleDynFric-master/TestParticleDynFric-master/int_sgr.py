@@ -1,0 +1,326 @@
+# module for integr
+
+from astropy.constants import G
+from astropy.coordinates import CartesianRepresentation
+from astropy.coordinates import CartesianDifferential
+import astropy.units as u
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
+import math
+
+import numpy as np
+
+import time
+
+import gala.dynamics as gd
+import gala.integrate as gi
+import gala.potential as gp
+
+from gala.units import galactic
+
+import random
+
+# helper functions
+
+def hernquist_menc(mtot, r, c):
+    return mtot * r * r / (r + c) / (r + c)
+
+# main functions
+
+def read_file(file_name, \
+              columns = [0, 1, 2, 3, 4, 5], \
+              pos_unit = u.kpc, \
+              vel_unit = (u.km / u.s)):
+    part_file = open(file_name)
+    particle_list = []
+    for line in part_file:
+        if line.strip()[0] == '#':
+            # skip all lines beginning with this character: '#'
+            continue
+        particle_list.append([float(line.split()[col]) for col in columns])
+
+    part_file.close()
+
+    particle_list = np.transpose(particle_list)
+
+    positions = \
+        ([particle_list[i] for i in range(0, 3)] * pos_unit).to(u.kpc)
+    velocities = \
+        ([particle_list[i] for i in range(3, 6)] * vel_unit).to(u.kpc / u.Myr)
+
+    return gd.PhaseSpacePosition(pos=positions, vel=velocities)
+
+    
+
+def integrate(w0,\
+              sat_mass = 1e8,\
+              pot=gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
+              timestep = -10.67,\
+              ntimesteps = 250,\
+              verbose=False):
+    
+    # TODO
+    orbit = None # define the orbit object in this scope
+
+    if verbose:
+        print('integrating ... ')
+        start_time = time.time()
+        orbit = gp.Hamiltonian(pot).integrate_orbit(w0, dt=timestep, n_steps=ntimesteps)
+        orbit_time = time.time() - start_time
+        print('done integrating')
+        print('Length of integration: %1.3f' % orbit_time)
+    else:
+        orbit = gp.Hamiltonian(pot).integrate_orbit(w0, dt=timestep, n_steps=ntimesteps)
+    
+    return orbit, pot
+
+def integrate_dyn_fric(w0,\
+              sat_mass = 1e8,\
+              pot=gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
+              scale_radius = 18.927757889861788,\
+              timestep = -10.67,\
+              ntimesteps = 250,\
+              verbose=False):
+
+    def F_dyn_fric(t, w, msat, rs):
+        G_gal = 4.49850215e-12 # gravitational constant in galactic units (kpc^3 Msun^-1 Myr^-2)
+        accdf = 0.0
+        
+        q = w[0:3]
+        p = w[3:6]
+
+        verf = np.vectorize(math.erf)
+
+        absr = np.linalg.norm(q, axis=0)
+        absv = np.linalg.norm(p, axis=0)
+
+        loglambda = np.maximum(0, np.log(absr / 3 / 1.6))
+        rhoh = pot.density(q).value
+
+        normalized_r = absr / rs
+
+        # 0.2199 kpc / Myr = 215 km/s
+        sigma = 0.2199 * ( 1.4393 * normalized_r ** 0.354 / (1 + 1.1756 * normalized_r ** 0.725) )
+
+        chand_x = absv / math.sqrt(2) / sigma
+
+        # k is the part of the equation with the erf and exp components
+        k = verf(chand_x) - 2 * chand_x * np.exp(- np.square(chand_x)) / math.sqrt(math.pi)
+
+        accdf = (-4 * math.pi * G_gal * G_gal * msat * loglambda * rhoh / absv**3) * k * p
+        
+        q_dot = p
+        p_dot = -pot.gradient(q).value + accdf
+        
+
+        toreturn = np.concatenate((q_dot, p_dot))
+        
+        return toreturn
+
+    integrator = gi.LeapfrogIntegrator(F_dyn_fric, func_args = (sat_mass, scale_radius), func_units = galactic)
+
+    orbit = None
+
+    if verbose:
+        print('integrating ... ')
+    
+        start_time = time.time()
+        orbit = integrator.run(w0,dt=timestep, n_steps = ntimesteps)
+        
+        orbit_time = time.time() - start_time
+        print('done integrating')
+        print('Length of integration: %1.3f' % orbit_time)
+    else:
+        orbit = integrator.run(w0,dt=timestep, n_steps = ntimesteps)
+
+    return orbit, pot
+
+def calc_dps(part_mass, orbit, pot, com_index, \
+             m_mw = 130.0075e10 * u.Msun, \
+             c_mw = 32.089 * u.kpc, \
+             ylims = [0.1, 500], \
+             plot_title = 'Dps of 10 particles (within 0.5 * tidal radius)',\
+             show_plot=True,\
+             verbose=True):
+    
+    if verbose:
+        print(m_mw, c_mw)
+        print(com_index)
+
+    tidal_radii = []
+    escape_velocities = []
+    # calculate the escape velocity and tidal radius
+    for ts in range(orbit.ntimes):
+        curr_pos = orbit[ts].pos[com_index]
+        curr_vel = orbit[ts].vel[com_index]
+        r_i = np.linalg.norm(curr_pos.xyz) * u.kpc
+        
+        r_tide_i = r_i * (1e8 * u.Msun / 3 / hernquist_menc(m_mw, r_i, c_mw)) ** (1/3)
+        
+        vesc_i = np.sqrt((2 * G * 1e8 * u.Msun / r_tide_i))
+
+        tidal_radii.append(r_tide_i.to(u.kpc).value)
+        escape_velocities.append(vesc_i.to(u.km / u.s).value)
+
+    # dictionary from a timestep to a list of each particle's psvectors (ndarray)
+    # calculate the normalized ps vector for each particle at each timestep
+    ps_vectors = {}
+    list_ps_indices = []
+    num_particles = len(orbit[0].pos)
+
+    if verbose:
+        print('normalizing positions and velocities ... ')
+
+    pos_table = orbit.pos.xyz.value
+    vel_table = orbit.vel.d_xyz.value
+
+    if verbose:
+        print(pos_table.shape)
+
+    #for part_index in range(num_particles):
+    for part_index in range(num_particles):
+        if verbose:
+            if part_index == com_index:
+                continue
+            if part_index % 10 == 0:
+                print('part_index', part_index)
+        
+        ps_vectors[part_index] = {}
+        for ts in range(orbit.ntimes):
+            pos_x = (pos_table[0][ts][part_index] - pos_table[0][ts][com_index]) / tidal_radii[ts]
+            pos_y = (pos_table[1][ts][part_index] - pos_table[1][ts][com_index]) / tidal_radii[ts]
+            pos_z = (pos_table[2][ts][part_index] - pos_table[2][ts][com_index]) / tidal_radii[ts]
+
+            vel_x = (vel_table[0][ts][part_index] - vel_table[0][ts][com_index]) / escape_velocities[ts]
+            vel_y = (vel_table[1][ts][part_index] - vel_table[1][ts][com_index]) / escape_velocities[ts]
+            vel_z = (vel_table[2][ts][part_index] - vel_table[2][ts][com_index]) / escape_velocities[ts]
+
+            ps_vectors[part_index][ts] = np.array(\
+                [pos_x, pos_y, pos_z, vel_x, vel_y, vel_z])
+
+
+    # find the minimum ps_vector magnitude for each particle
+
+    # particle index to minimum ps_vector
+    min_ps_vects = {}
+
+    for part_index in range(num_particles):
+        if verbose:
+            if part_index == com_index:
+                continue
+
+            if part_index % 10 == 0:
+                print('mix dps vect', part_index)
+
+        curr_part = ps_vectors[part_index]
+
+        curr_min_ps = None
+        curr_min_mag = 1e99
+        
+        for ts in range(orbit.ntimes):
+            curr_ps_mag = np.linalg.norm(ps_vectors[part_index][ts])
+            if curr_ps_mag < curr_min_mag:
+                curr_min_mag = curr_ps_mag
+                curr_min_ps = ps_vectors[part_index][ts]
+
+        min_ps_vects[part_index] = curr_min_ps
+
+    # append the minimum ps-vector magnitude for each particle to a matrix        
+    min_matrix = np.array(list(min_ps_vects.values()))
+
+    # find the covariance matrix
+    #   transpose the matrix and call np.cov()
+    cov_mat = np.cov(min_matrix.T)
+    if verbose:
+        print('Covariance Matrix')
+        print(cov_mat)
+    
+    # calculate the determinant (np.linalg.det())
+    toreturn = np.linalg.det(cov_mat)
+    print('Determinant')
+    print(toreturn)
+    
+    # calculate the minimum magnitude of this dps vector
+
+    if len(ps_vectors) < 10:
+        part_indices = ps_vectors.keys()
+    else:
+        part_indices = random.sample(ps_vectors.keys(), 10)
+
+    # plot the dps (log on the yscale, ylim is [0.1, 50], xlim is [0, 2650] - that should be different
+    # plt.hlines(2, 0, 2650, linestyles = 'dashed'
+
+    if show_plot:
+        timesteps = list(range(orbit.ntimes))
+        ts_list_myr = [-2650.0 * ts / len(timesteps) for ts in timesteps]
+
+        for part_index in part_indices:
+            dps_vals = [np.linalg.norm(ps_vectors[part_index][ts]) for ts in timesteps]
+
+            min_dps_index = dps_vals.index(min(dps_vals))
+            min_dps_time = -2650.0 * min_dps_index / len(timesteps)
+            curr_min_dps = min(dps_vals)
+
+            curr_line = plt.plot(ts_list_myr, dps_vals, lw=0.5)
+            print(curr_line[0].get_c())
+            plt.plot([min_dps_time], [curr_min_dps], marker='+', c='black', markersize=10.0, mew=1.5, zorder = 10)
+
+        plt.hlines(2, min(ts_list_myr), max(ts_list_myr), linestyles = 'dashed')
+
+        plt.title(plot_title)
+        plt.ylabel('Dps magnitude')
+        plt.xlabel('Time (Myr, 0 = present)')
+        plt.yscale('log')
+        plt.ylim(ylims)
+        plt.xlim([min(ts_list_myr), max(ts_list_myr)])
+        plt.show()
+
+    return toreturn
+
+def orbit_video(orb, folder_name, axes=['x', 'y']):
+    save_counter = 10000
+
+    orb_arr = [o for o in orb]
+    timesteps = orb.t.value.tolist() # These are Myr
+    
+    orb_arr.reverse()
+    timesteps.reverse()
+    
+    
+    for i in range(len(orb_arr)):
+        curr_ts = timesteps[i]
+        o = orb_arr[i]
+        
+        curr_fig = o.plot(axes, s = 2.0, edgecolors='none', color = 'black')
+        curr_fig.set_size_inches(6.0, 5.0)
+
+        plt.title('Sgr dSph orbit (t=%1.2f Myr)' % curr_ts)
+
+        plt.xlabel('X (kpc)')
+        plt.ylabel('Y (kpc')
+        
+        plt.xlim([-120, 120])
+        plt.ylim([-120, 120])
+
+        plt.gca().set_aspect('equal', adjustable='box')
+        
+        curr_fig.savefig(\
+            'gaiavideos\\' + folder_name + '\\p' + str(save_counter)[1:] + '.png')
+        curr_fig.clear()
+        plt.close(curr_fig)
+        save_counter = save_counter + 1
+        print((save_counter - 10000), end = ' ')
+    print('Saved images')
+
+def plot_bound_parts():
+    # TODO
+    pass
+
+def select_in_tidal(w0, ratio_tidal=0.5):
+    # TODO
+    pass
+
+
+
