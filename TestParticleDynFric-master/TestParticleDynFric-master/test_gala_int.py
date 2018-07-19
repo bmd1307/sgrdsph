@@ -94,13 +94,13 @@ def orbit_video(orb, folder_name):
         print((save_counter - 10000), end = ' ')
     print('Saved images')
 
-def calc_com(part_mass, orbit, pot):
+def calc_com(part_mass, orbit, pot, ts = 0):
 
     part_mass = part_mass * u.Msun
     GM_value = (part_mass * part_mass * G).to(u.g * u.cm * u.cm * u.cm / u.s / u.s).value
 
-    coords = orbit[0].pos
-    vels = orbit[0].vel
+    coords = orbit[ts].pos
+    vels = orbit[ts].vel
 
     coords_values = np.array(coords.get_xyz().to(u.cm)).T.tolist()
 
@@ -135,41 +135,7 @@ def calc_com(part_mass, orbit, pot):
 
     boundness_list = sorted(boundness_list, key=lambda curr_tup: curr_tup[0])
 
-    bound_parts = [curr_tup[1] for curr_tup in boundness_list[:100]]
-    unbound_parts = [curr_tup[1] for curr_tup in boundness_list[100:]]
-
-    bound_vels = [curr_tup[2] for curr_tup in boundness_list[:100]]
-    unbound_vels = [curr_tup[2] for curr_tup in boundness_list[100:]]
-
-    get_x = lambda coordinate_list: [curr_coord.x.value for curr_coord in coordinate_list]
-    get_y = lambda coordinate_list: [curr_coord.y.value for curr_coord in coordinate_list]
-    get_z = lambda coordinate_list: [curr_coord.z.value for curr_coord in coordinate_list]
-
-    get_vx = lambda coordinate_list: [curr_coord.d_x.to(u.km / u.s).value for curr_coord in coordinate_list]
-    get_vy = lambda coordinate_list: [curr_coord.d_y.to(u.km / u.s).value for curr_coord in coordinate_list]
-    get_vz = lambda coordinate_list: [curr_coord.d_z.to(u.km / u.s).value for curr_coord in coordinate_list]
-
-    bound_xs = get_x(bound_parts)
-    bound_ys = get_y(bound_parts)
-    bound_zs = get_z(bound_parts)
-
-    bound_vxs = get_vx(bound_vels)
-    bound_vys = get_vy(bound_vels)
-    bound_vzs = get_vz(bound_vels)
-
-    #print('Naive com: (%f, %f, %f)' % (np.average(bound_xs), np.average(bound_ys), np.average(bound_zs)))
-    #print('Naive com vel: (%f, %f, %f)' % (np.average(bound_vxs), np.average(bound_vys), np.average(bound_vzs)))
-
-    most_bound_part = boundness_list[0][1]
-
-    #print(boundness_list[0][1])
-    #print(boundness_list[0][2].d_xyz.to(u.km / u.s))
-    #print(boundness_list[0][3])
-
     return boundness_list[0][1], boundness_list[0][2], boundness_list[0][3]
-
-    #return CartesianRepresentation(np.average(bound_xs), np.average(bound_ys), np.average(bound_zs)),\
-    #       CartesianDifferential((np.average(bound_vxs), np.average(bound_vys), np.average(bound_vzs)))
 
 def calc_dps(part_mass, orbit, pot, com_index, \
              m_mw = 130.0075e10 * u.Msun, \
@@ -178,11 +144,7 @@ def calc_dps(part_mass, orbit, pot, com_index, \
              plot_title = 'Dps of 10 particles (within 0.5 * tidal radius)',\
              show_plot=True,\
              verbose=True):
-
-    #com_p, com_v, com_index = calc_com(part_mass, orbit, pot)
-    #com_index = 296
-    #print(com_p)
-    #print(com_v)
+    
     if verbose:
         print(m_mw, c_mw)
         print(com_index)
@@ -194,13 +156,10 @@ def calc_dps(part_mass, orbit, pot, com_index, \
         curr_pos = orbit[ts].pos[com_index]
         curr_vel = orbit[ts].vel[com_index]
         r_i = np.linalg.norm(curr_pos.xyz) * u.kpc
-        #print(ts, r_i)
-        #print('M enc', hernquist_menc(m_mw, r_i, c_mw))
+        
         r_tide_i = r_i * (1e8 * u.Msun / 3 / hernquist_menc(m_mw, r_i, c_mw)) ** (1/3)
-        #print('tidal radius', r_tide_i)
+        
         vesc_i = np.sqrt((2 * G * 1e8 * u.Msun / r_tide_i))
-        #print('Escape velocity', vesc_i.to(u.km / u.s))
-        #print()
 
         tidal_radii.append(r_tide_i.to(u.kpc).value)
         escape_velocities.append(vesc_i.to(u.km / u.s).value)
@@ -330,13 +289,8 @@ def integrate(input_file = 'heavy_sag_core', \
 
     particle_list = np.transpose(particle_list).tolist()
 
-    #print(particle_list[0] * u.kpc)
-
     positions = [particle_list[i] for i in range(0, 3)] * u.kpc
     velocities = [particle_list[i] for i in range(3, 6)] * (u.km / u.s)
-
-    #positions = [[10, -10],[0,0],[0,0]] * u.kpc
-    #velocities = [[0, 0], [-100, 100], [0,0]] * (u.km / u.s)
 
     w0 = gd.PhaseSpacePosition(pos=positions, vel=velocities)
 
@@ -350,16 +304,6 @@ def integrate(input_file = 'heavy_sag_core', \
     
     return orbit, pot
 
-    #plt.hist2d(xs, ys, bins = 30)
-    #plt.show()
-    #orbit_video(orbit)
-    #plot_bound_parts(1e8 / 1000, orbit[-1].pos, orbit[-1].vel, pot)
-    #com_p, com_v, com_index = calc_com(sat_mass / num_particles, orbit, pot)
-    #print(com_p, com_v, com_index)
-    #com_index = 296
-    #calc_dps(sat_mass / num_particles, orbit, pot, com_index)
-    #print(orbit.t)
-
 def integrate_dyn_fric(input_file = 'heavy_sag_core', \
               sat_mass = 1e8, \
               pot = gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
@@ -370,15 +314,10 @@ def integrate_dyn_fric(input_file = 'heavy_sag_core', \
 
     particle_list = np.transpose(particle_list).tolist()
 
-    #print(particle_list[0] * u.kpc)
-
     positions = [particle_list[i] for i in range(0, 3)] * u.kpc
     velocities = [particle_list[i] for i in range(3, 6)] * (u.km / u.s)
 
     velocities = velocities.to(u.kpc / u.Myr)
-
-    #positions = [[10, -10],[0,0],[0,0]] * u.kpc
-    #velocities = [[0, 0], [-100, 100], [0,0]] * (u.km / u.s)
 
     w0 = gd.PhaseSpacePosition(pos=positions, vel=velocities)
 
@@ -399,6 +338,7 @@ def integrate_dyn_fric(input_file = 'heavy_sag_core', \
 
         normalized_r = absr / rs
 
+        # 0.2199 kpc / Myr = 215 km/s
         sigma = 0.2199 * ( 1.4393 * normalized_r ** 0.354 / (1 + 1.1756 * normalized_r ** 0.725) )
 
         chand_x = absv / math.sqrt(2) / sigma
@@ -573,8 +513,6 @@ def plot_bound_parts(part_mass, coords, vels, pot):
 
     for p_energy, p_coords in boundness_list[1:]:
         dist_to_com = most_bound_part - p_coords
-
-        # todo get magnitude of dist_to_com
     
         com_dists.append(np.linalg.norm(dist_to_com.xyz.value))
         com_energies.append(p_energy)
@@ -597,7 +535,7 @@ def select_in_tidal_radius():
 
     calc_dps(sat_mass / orbit.shape[1], orbit, pot, com_index)
 
-def write_tidal_radius_file(r_ratio = 0.5, sat_mass=1e8*u.Msun, in_file = 'centroid_part_1000', out_file_name = 'parts_tidal_radius'):
+def write_tidal_radius_file(r_ratio = 0.5, sat_mass=1e8*u.Msun, in_file = 'centroid_part_1000', out_file_name = 'parts_tidal_radius', ts=0):
     print('Writing Tidal Radius File')
     print('args:')
     print('\tr_ratio', r_ratio)
@@ -631,9 +569,9 @@ def write_tidal_radius_file(r_ratio = 0.5, sat_mass=1e8*u.Msun, in_file = 'centr
     print('done integrating')
     print('Length of integration: %1.3f' % orbit_time)
 
-    com_pos, com_vel, com_index = calc_com(sat_mass.value / 1000, orbit, pot)
+    com_pos, com_vel, com_index = calc_com(sat_mass.value / 1000, orbit, pot, ts)
 
-    distances_to_com = [np.linalg.norm(n.xyz) for n in (orbit[0].pos - com_pos)]
+    distances_to_com = [np.linalg.norm(n.xyz) for n in (orbit[ts].pos - com_pos)]
 
     com_r = np.linalg.norm(com_pos.xyz)
 
@@ -703,7 +641,7 @@ def run_normal_sag(m_p, m_c):
              plot_title = 'Dps of 10 particles (Full Stream, M*=10^8 Msun)', \
              show_plot = False, verbose = False)
 
-def test_dyn_fric():
+def test_dyn_fric(input_file_name='centroid_part_1000'):
     sat_mass = 1e8 # Msun
 
     mw_conc = 9.39
@@ -719,16 +657,14 @@ def test_dyn_fric():
 
     pot = gp.HernquistPotential(m=mw_mass,c =mw_c, units=galactic)
 
-    print('density', pot.density([1, 1, 1] * u.kpc))
-
     #orbit, pot = integrate(input_file='centroid_part_1000',sat_mass=sat_mass, pot=pot)
-    orbit, pot = integrate(input_file='centroid_part_1000',sat_mass=sat_mass, pot=pot)
-    orbit_dyn, pot_dyn = integrate_dyn_fric(input_file='centroid_part_1000',sat_mass=sat_mass, pot=pot, scale_radius=mw_r_scale.value)
+    orbit, pot = integrate(input_file=input_file_name,sat_mass=sat_mass, pot=pot)
+    orbit_dyn, pot_dyn = integrate_dyn_fric(input_file=input_file_name,sat_mass=sat_mass, pot=pot, scale_radius=mw_r_scale.value)
 
     orbit[-1].plot().show()
-    #orbit[0].plot().show()
+    orbit[0].plot().show()
 
-    orbit_dyn[-1].plot().show()
+    #orbit_dyn[-1].plot().show()
     #orbit_dyn[0].plot().show()
 
     #orbit_video(orbit, 'force_func_int')
@@ -753,12 +689,12 @@ def __main__():
     pot = gp.HernquistPotential(m=test_m*1e10*u.Msun,c =test_c, units=galactic)
 
 
-    #write_tidal_radius_file(sat_mass=1e9*u.Msun, in_file='heavy_sag_7_10', out_file_name='heavy_sag_core')
+    write_tidal_radius_file(sat_mass=1e8*u.Msun, in_file='centroid_part_1000', out_file_name='parts_tidal_first_ts', ts = -1)
     #integrate(input_file='heavy_sag_core',sat_mass=1e9)
 
     #select_in_tidal_radius()
 
-    test_dyn_fric()
+    #test_dyn_fric('parts_tidal_first_ts')
 
     if False:
 
