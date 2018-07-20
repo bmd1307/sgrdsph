@@ -29,17 +29,28 @@ def hernquist_menc(mtot, r, c):
 
 # main functions
 
-def read_file(file_name, \
-              columns = [0, 1, 2, 3, 4, 5], \
+def read_file(file_name,\
+              columns = [0, 1, 2, 3, 4, 5],\
               pos_unit = u.kpc, \
-              vel_unit = (u.km / u.s)):
+              vel_unit = (u.km / u.s),\
+              skip_lines = []):
     part_file = open(file_name)
     particle_list = []
+    line_counter = 0
     for line in part_file:
-        if line.strip()[0] == '#':
+        #print(line)
+        
+        if line_counter in skip_lines:
+            line_counter = line_counter + 1
+            continue
+        
+        if line.strip() == '' or line.strip()[0] == '#':
+            line_counter = line_counter + 1
             # skip all lines beginning with this character: '#'
             continue
         particle_list.append([float(line.split()[col]) for col in columns])
+
+        line_counter = line_counter + 1
 
     part_file.close()
 
@@ -136,6 +147,50 @@ def integrate_dyn_fric(w0,\
         orbit = integrator.run(w0,dt=timestep, n_steps = ntimesteps)
 
     return orbit, pot
+
+def calc_com(part_mass, orbit, pot, ts = 0):
+
+    part_mass = part_mass * u.Msun
+    GM_value = (part_mass * part_mass * G).to(u.g * u.cm * u.cm * u.cm / u.s / u.s).value
+
+    coords = orbit[ts].pos
+    vels = orbit[ts].vel
+
+    coords_values = np.array(coords.get_xyz().to(u.cm)).T.tolist()
+
+    boundness_list = []
+
+    for i in range(len(coords)):
+        curr_p = coords[i]
+        curr_v = vels[i]
+        pot_energy = pot.energy(curr_p.get_xyz()).to(u.cm * u.cm / u.s / u.s) *\
+                         part_mass.to(u.g)
+
+        particles_energy = 0.0 # Units cm cm / s / s
+
+        for j in range(len(coords)):
+            if i == j:
+                continue
+            ix, iy, iz = coords_values[i]
+            jx, jy, jz = coords_values[j]
+            
+            dispx = jx - ix
+            dispy = jy - iy
+            dispz = jz - iz
+
+            curr_dist_value = (dispx * dispx + dispy * dispy + dispz * dispz)**.5 
+            
+            curr_energy = -GM_value / curr_dist_value
+
+            particles_energy = particles_energy + curr_energy
+
+        # the last index here is the particle ID
+        boundness_list.append((particles_energy, coords[i], vels[i], i))
+
+    boundness_list = sorted(boundness_list, key=lambda curr_tup: curr_tup[0])
+
+    return boundness_list[0][1], boundness_list[0][2], boundness_list[0][3]
+
 
 def calc_dps(part_mass, orbit, pot, com_index, \
              m_mw = 130.0075e10 * u.Msun, \

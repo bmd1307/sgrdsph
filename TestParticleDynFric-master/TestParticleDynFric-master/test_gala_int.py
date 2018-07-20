@@ -24,6 +24,8 @@ from gala.units import galactic
 
 import random
 
+import int_sgr
+
 # import debug_gala
 
 print('done')
@@ -682,6 +684,33 @@ def test_dyn_fric(input_file_name='centroid_part_1000'):
 
 def run_sag(file_name, sag_mass, mw_mass, mw_c):
     pass
+
+def test_dyn_fric_sc():
+
+    w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+
+    orbit, pot = int_sgr.integrate(w0)
+
+    com_p, com_v, com_index = int_sgr.calc_com(1e8 / 1e3, orbit, pot)
+
+    print(w0[0])
+
+    print(com_data)
+
+    w1 = PhaseSpacePosition(pos=com_p, vel=com_v)
+
+    orbit_light = int_sgr.integrate_dyn_fric(w1, sat_mass=1e8, verbose=True)
+    orbit_heavy = int_sgr.integrate_dyn_fric(w1, sat_mass=1e10, verbose=True)
+
+    timesteps = [ts for ts in range(orbit.ntimes)]
+
+    r_light = [np.linalg.norm(orbit_light[ts].pos.xyz).value for ts in timesteps]
+    r_heavy = [np.linalg.norm(orbit_heavy[ts].pos.xyz).value for ts in timesteps]
+
+    plt.plot(timesteps, r_light)
+    plt.plot(timesteps, r_heavy)
+
+    plt.show()
     
 def __main__():
     test_c = 32.089
@@ -689,12 +718,16 @@ def __main__():
     pot = gp.HernquistPotential(m=test_m*1e10*u.Msun,c =test_c, units=galactic)
 
 
-    write_tidal_radius_file(sat_mass=1e8*u.Msun, in_file='centroid_part_1000', out_file_name='parts_tidal_first_ts', ts = -1)
+    #write_tidal_radius_file(sat_mass=1e8*u.Msun, in_file='centroid_part_1000', out_file_name='parts_tidal_first_ts', ts = -1)
     #integrate(input_file='heavy_sag_core',sat_mass=1e9)
 
     #select_in_tidal_radius()
 
     #test_dyn_fric('parts_tidal_first_ts')
+
+    test_dyn_fric_sc()
+
+    
 
     if False:
 
