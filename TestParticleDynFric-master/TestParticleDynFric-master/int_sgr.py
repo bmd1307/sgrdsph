@@ -120,7 +120,7 @@ def integrate_dyn_fric(w0,\
         # k is the part of the equation with the erf and exp components
         k = verf(chand_x) - 2 * chand_x * np.exp(- np.square(chand_x)) / math.sqrt(math.pi)
 
-        accdf = (-4 * math.pi * G_gal * G_gal * msat * loglambda * rhoh / absv**3) * k * p
+        accdf = (4 * math.pi * G_gal * G_gal * msat * loglambda * rhoh / absv**3) * k * p
         
         q_dot = p
         p_dot = -pot.gradient(q).value + accdf
@@ -148,37 +148,31 @@ def integrate_dyn_fric(w0,\
 
     return orbit, pot
 
-def calc_com(part_mass, orbit, pot, ts = 0):
+def calc_com(part_mass, ps_vect, pot):
 
     part_mass = part_mass * u.Msun
     GM_value = (part_mass * part_mass * G).to(u.g * u.cm * u.cm * u.cm / u.s / u.s).value
 
-    coords = orbit[ts].pos
-    vels = orbit[ts].vel
+    coords = ps_vect.pos.xyz.transpose()
+    vels = ps_vect.vel.d_xyz.transpose()
 
-    coords_values = np.array(coords.get_xyz().to(u.cm)).T.tolist()
+    coords_cm = coords.to(u.cm).value
+
+    print(coords[0:2])
+    print(vels[0:2])
 
     boundness_list = []
 
     for i in range(len(coords)):
-        curr_p = coords[i]
-        curr_v = vels[i]
-        pot_energy = pot.energy(curr_p.get_xyz()).to(u.cm * u.cm / u.s / u.s) *\
-                         part_mass.to(u.g)
 
         particles_energy = 0.0 # Units cm cm / s / s
+
+        curr_dists = np.linalg.norm(coords_cm - coords_cm[i], axis = 1)
 
         for j in range(len(coords)):
             if i == j:
                 continue
-            ix, iy, iz = coords_values[i]
-            jx, jy, jz = coords_values[j]
-            
-            dispx = jx - ix
-            dispy = jy - iy
-            dispz = jz - iz
-
-            curr_dist_value = (dispx * dispx + dispy * dispy + dispz * dispz)**.5 
+            curr_dist_value = curr_dists[j]
             
             curr_energy = -GM_value / curr_dist_value
 

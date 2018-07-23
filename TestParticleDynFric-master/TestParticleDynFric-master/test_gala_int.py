@@ -691,26 +691,48 @@ def test_dyn_fric_sc():
 
     orbit, pot = int_sgr.integrate(w0)
 
-    com_p, com_v, com_index = int_sgr.calc_com(1e8 / 1e3, orbit, pot)
+    timestart = time.time()
+    com_p, com_v, com_index = int_sgr.calc_com(1e8 / 1e3, orbit[0], pot)
+    print('com time', time.time() - timestart)
+    print('p', com_p)
+    print('v', com_v)
+    print('index', com_index)
 
-    print(w0[0])
+    com_p, com_v, com_index = int_sgr.calc_com(1e8 / 1e3, w0, pot)
+    print('com time', time.time() - timestart)
+    print('p', com_p)
+    print('v', com_v)
+    print('index', com_index)
 
-    print(com_data)
+    w1 = gd.PhaseSpacePosition(pos=com_p, vel=com_v)
 
-    w1 = PhaseSpacePosition(pos=com_p, vel=com_v)
+    orbit_light, pot = int_sgr.integrate_dyn_fric(w1, sat_mass=1e8, verbose=True)
+    orbit_heavy, pot = int_sgr.integrate_dyn_fric(w1, sat_mass=1e10, verbose=True)
 
-    orbit_light = int_sgr.integrate_dyn_fric(w1, sat_mass=1e8, verbose=True)
-    orbit_heavy = int_sgr.integrate_dyn_fric(w1, sat_mass=1e10, verbose=True)
+    timesteps = [ts * -10.67 for ts in range(orbit.ntimes)]
 
-    timesteps = [ts for ts in range(orbit.ntimes)]
+    #print(np.linalg.norm(orbit_light[0].pos.xyz, axis=0).shape)
+    #print((np.linalg.norm(orbit_light[0].pos.xyz, axis=0)))
 
-    r_light = [np.linalg.norm(orbit_light[ts].pos.xyz).value for ts in timesteps]
-    r_heavy = [np.linalg.norm(orbit_heavy[ts].pos.xyz).value for ts in timesteps]
+    r_light = np.linalg.norm(orbit_light.xyz, axis=0)
+    r_heavy = np.linalg.norm(orbit_heavy.xyz, axis=0)
 
-    plt.plot(timesteps, r_light)
-    plt.plot(timesteps, r_heavy)
+    plt.plot(timesteps, r_light, linestyle='-', linewidth=3, color='blue')
+    plt.plot(timesteps, r_heavy, linestyle='--', linewidth=3, color='red')
+
+    plt.ylim([10, 100])
+    
+    plt.title('Galactocentric Distance without Dynamical Friction in Gala')
+    plt.ylabel('Galactocentric Distance (kpc)')
+    plt.xlabel('Time (Myr, 0 = present)')
+    
+
+    plt.legend(['10e8 Sgr', '10e10 Sgr'])
 
     plt.show()
+
+def test_dps_0_5_1_0():
+    pass
     
 def __main__():
     test_c = 32.089
