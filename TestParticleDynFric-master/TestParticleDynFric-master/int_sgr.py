@@ -186,7 +186,7 @@ def calc_com(sat_mass, ps_vect):
     return boundness_list[0][1], boundness_list[0][2], boundness_list[0][3]
 
 
-def calc_dps(sat_mass, orbit, pot, com_index, \
+def calc_dps(sat_mass, orbit, pot, com_orbit, \
              m_mw = 130.0075e10 * u.Msun, \
              c_mw = 32.089 * u.kpc, \
              ylims = [0.1, 500], \
@@ -196,14 +196,13 @@ def calc_dps(sat_mass, orbit, pot, com_index, \
     
     if verbose:
         print(m_mw, c_mw)
-        print(com_index)
 
     tidal_radii = []
     escape_velocities = []
     # calculate the escape velocity and tidal radius
     for ts in range(orbit.ntimes):
-        curr_pos = orbit[ts].pos[com_index]
-        curr_vel = orbit[ts].vel[com_index]
+        curr_pos = com_orbit[ts].pos
+        curr_vel = com_orbit[ts].vel
         r_i = np.linalg.norm(curr_pos.xyz) * u.kpc
         
         #r_tide_i = r_i * (sat_mass * u.Msun / 3 / hernquist_menc(m_mw, r_i, c_mw)) ** (1/3)
@@ -224,40 +223,13 @@ def calc_dps(sat_mass, orbit, pot, com_index, \
 
     if verbose:
         print('normalizing positions and velocities ... ')
-
-    pos_table = orbit.pos.xyz.value
-    vel_table = orbit.vel.d_xyz.value
-
-    if verbose:
-        print(pos_table.shape)
-
-
-    if False:
-        for part_index in range(num_particles):
-            if verbose:
-                if part_index == com_index:
-                    continue
-                if part_index % 10 == 0:
-                    print('part_index', part_index)
-            
-            ps_vectors[part_index] = {}
-            for ts in range(orbit.ntimes):
-                pos_x = (pos_table[0][ts][part_index] - pos_table[0][ts][com_index]) / tidal_radii[ts]
-                pos_y = (pos_table[1][ts][part_index] - pos_table[1][ts][com_index]) / tidal_radii[ts]
-                pos_z = (pos_table[2][ts][part_index] - pos_table[2][ts][com_index]) / tidal_radii[ts]
-
-                vel_x = (vel_table[0][ts][part_index] - vel_table[0][ts][com_index]) / escape_velocities[ts]
-                vel_y = (vel_table[1][ts][part_index] - vel_table[1][ts][com_index]) / escape_velocities[ts]
-                vel_z = (vel_table[2][ts][part_index] - vel_table[2][ts][com_index]) / escape_velocities[ts]
-
-                ps_vectors[part_index][ts] = np.array(\
-                    [pos_x, pos_y, pos_z, vel_x, vel_y, vel_z])
-
     
     delta_pos = \
-            orbit.pos.xyz.value - orbit.pos.xyz.value[:,:,com_index,None]
+            orbit.pos.xyz.value - com_orbit.pos.xyz.value[:,:,None]
     delta_vel = \
-            orbit.vel.d_xyz.value - orbit.vel.d_xyz.value[:,:,com_index,None]
+            orbit.vel.d_xyz.value - com_orbit.vel.d_xyz.value[:,:,None]
+
+    #print(delta_pos.shape)
 
     r_tidals = np.array(tidal_radii)
     v_escs = np.array(escape_velocities)
@@ -274,9 +246,6 @@ def calc_dps(sat_mass, orbit, pot, com_index, \
 
     for part_index in range(num_particles):
         if verbose:
-            if part_index == com_index:
-                continue
-
             if part_index % 10 == 0:
                 print('mix dps vect', part_index)
 
@@ -291,6 +260,9 @@ def calc_dps(sat_mass, orbit, pot, com_index, \
 
     # append the minimum ps-vector magnitude for each particle to a matrix        
     min_matrix = np.array(list(min_ps_vects.values()))
+
+    if verbose:
+        print(min_matrix[0:5])
 
     # find the covariance matrix
     #   transpose the matrix and call np.cov()

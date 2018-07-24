@@ -754,28 +754,36 @@ def adrian_dps_test():
 
     in_5_tidal = int_sgr.select_tidal_annulus(w0, ann_high = 0.5, sat_mass = s_mass)
 
-    def get_dps(w, smass, title):
-        print('***', title, '***')
-        orbit, pot = int_sgr.integrate(w)
-        com_p, com_v, com_index = int_sgr.calc_com(smass, w)
-        return int_sgr.calc_dps(smass, orbit, pot, com_index, verbose=False, show_plot=False)
+    com_p, com_v, com_index = int_sgr.calc_com(s_mass, w0)
 
-    print(get_dps(w0, s_mass, 'Full stream'))
-    print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal'))
-    print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal'))
+    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v), sat_mass= s_mass)
+
+    def get_dps(w, smass, title, com_orbit):
+        print('***', title, '***')
+        print('Num parts', w.shape)
+        orbit, pot = int_sgr.integrate(w)
+        return int_sgr.calc_dps(smass, orbit, pot, com_orbit, verbose=False, show_plot=True)
+
+    #print(get_dps(w0, s_mass, 'Full stream', com_orbit))
+    print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal', com_orbit))
+    #print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal', com_orbit))
 
     s_mass = 1e8
     file_name = 'centroid_part_1000'
     
     w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
+    com_p, com_v, com_index = int_sgr.calc_com(s_mass, w0)
+
+    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v), sat_mass= s_mass)
+
     half_to_one_tidal = int_sgr.select_tidal_annulus(w0, ann_low = 0.5, ann_high = 1.0, sat_mass = s_mass)
 
     in_5_tidal = int_sgr.select_tidal_annulus(w0, ann_high = 0.5, sat_mass = s_mass)
 
-    print(get_dps(w0, s_mass, 'Full stream'))
-    print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal'))
-    print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal'))
+    #print(get_dps(w0, s_mass, 'Full stream', com_orbit))
+    #print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal', com_orbit))
+    #print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal', com_orbit))
 
 def subtract_mean():
     file_name = 'centroid_part_1000'
