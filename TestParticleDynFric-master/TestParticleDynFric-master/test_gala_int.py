@@ -691,15 +691,9 @@ def test_dyn_fric_sc():
 
     orbit, pot = int_sgr.integrate(w0)
 
-    timestart = time.time()
-    com_p, com_v, com_index = int_sgr.calc_com(1e8 / 1e3, orbit[0], pot)
-    print('com time', time.time() - timestart)
-    print('p', com_p)
-    print('v', com_v)
-    print('index', com_index)
+    print(len(w0.pos))
 
-    com_p, com_v, com_index = int_sgr.calc_com(1e8 / 1e3, w0, pot)
-    print('com time', time.time() - timestart)
+    com_p, com_v, com_index = int_sgr.calc_com(1e8, w0)
     print('p', com_p)
     print('v', com_v)
     print('index', com_index)
@@ -732,7 +726,67 @@ def test_dyn_fric_sc():
     plt.show()
 
 def test_dps_0_5_1_0():
-    pass
+    w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+
+    w1 = int_sgr.select_in_tidal(w0, r_t_frac=0.5, sat_mass=1e8, mw_mass=1.300075e12, mw_c=9.39)
+
+    xs = w1.x
+    ys = w1.y
+
+    plt.scatter(xs, ys,color='yellow', zorder=10, alpha=0.5)
+
+    w2 = int_sgr.read_file('parts_tidal_radius', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+
+    x2 = w2.x
+    y2 = w2.y
+
+    plt.scatter(x2, y2, color = 'magenta', zorder =1, alpha=0.5)
+    
+    plt.show()
+
+def adrian_dps_test():
+    w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+
+    w1 = int_sgr.select_in_tidal(w0, r_t_frac=1.0, sat_mass=1e8, mw_mass=1.300075e12, mw_c=9.39)
+
+    w2 = int_sgr.select_in_tidal(w0, r_t_frac=0.5, sat_mass=1e8, mw_mass=1.300075e12, mw_c=9.39)
+
+    print(len(w1.pos))
+    print(len(w2.pos))
+
+    x1 = w1.x
+    y1 = w1.y
+
+    x2 = w2.x
+    y2 = w2.y
+
+    plt.scatter(x1, y1, color = 'red', zorder =1, alpha=0.5)
+    plt.scatter(x2, y2, color = 'green', zorder =1, alpha=0.5)
+
+    #plt.show()
+
+    print(w1.pos[0].xyz.value)
+    print(w1.pos.xyz.value.transpose().shape)
+
+    p1s = w1.pos.xyz.value.transpose()
+    p2s = w2.pos.xyz.value.transpose()
+
+    annulus_parts = []
+
+    for c in p1s:
+        if c in p2s:
+            #print(c)
+            pass
+        else:
+            print('not', c)
+            annulus_parts.append(c)
+
+    w3 = CartesianRepresentation(np.array(annulus_parts).transpose())
+
+    plt.scatter(w3.x, w3.y, color = 'blue', alpha = 0.5)
+    plt.show()
+    
+
     
 def __main__():
     test_c = 32.089
@@ -747,7 +801,9 @@ def __main__():
 
     #test_dyn_fric('parts_tidal_first_ts')
 
-    test_dyn_fric_sc()
+    #test_dyn_fric_sc()
+
+    adrian_dps_test()
 
     
 

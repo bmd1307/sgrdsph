@@ -27,6 +27,9 @@ import random
 def hernquist_menc(mtot, r, c):
     return mtot * r * r / (r + c) / (r + c)
 
+def r_tidal(sat_mass, mw_mass, mw_c, r_i):
+    return r_i * (sat_mass / 3 / hernquist_menc(mw_mass, r_i, mw_c)) ** (1/3)
+
 # main functions
 
 def read_file(file_name,\
@@ -148,18 +151,15 @@ def integrate_dyn_fric(w0,\
 
     return orbit, pot
 
-def calc_com(part_mass, ps_vect, pot):
+def calc_com(sat_mass, ps_vect):
 
-    part_mass = part_mass * u.Msun
+    part_mass = (sat_mass / len(ps_vect.pos)) * u.Msun
     GM_value = (part_mass * part_mass * G).to(u.g * u.cm * u.cm * u.cm / u.s / u.s).value
 
     coords = ps_vect.pos.xyz.transpose()
     vels = ps_vect.vel.d_xyz.transpose()
 
     coords_cm = coords.to(u.cm).value
-
-    print(coords[0:2])
-    print(vels[0:2])
 
     boundness_list = []
 
@@ -367,9 +367,27 @@ def plot_bound_parts():
     # TODO
     pass
 
-def select_in_tidal(w0, ratio_tidal=0.5):
-    # TODO
-    pass
+def select_in_tidal(w0,\
+                    r_t_frac=0.5,\
+                    sat_mass=1e8,\
+                    mw_mass=130.0075e10,\
+                    mw_c=9.39):
+    com_p, com_v, com_index = calc_com(sat_mass, w0)
+
+
+    distances_to_com =\
+        np.linalg.norm((w0.pos - CartesianRepresentation(com_p)).xyz, axis=0)
+
+    tidal_radius = r_tidal(sat_mass, mw_mass, mw_c, np.linalg.norm(com_p))
+
+    selected_indices = []
+
+    for p_index in range(len(distances_to_com)):
+        curr_dist = distances_to_com[p_index]
+        if curr_dist < tidal_radius * r_t_frac:
+            selected_indices.append(p_index)
+
+    return w0[selected_indices]
 
 
 
