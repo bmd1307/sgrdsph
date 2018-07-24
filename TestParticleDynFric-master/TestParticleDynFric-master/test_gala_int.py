@@ -745,48 +745,76 @@ def test_dps_0_5_1_0():
     plt.show()
 
 def adrian_dps_test():
-    w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
-
-    w1 = int_sgr.select_in_tidal(w0, r_t_frac=1.0, sat_mass=1e8, mw_mass=1.300075e12, mw_c=9.39)
-
-    w2 = int_sgr.select_in_tidal(w0, r_t_frac=0.5, sat_mass=1e8, mw_mass=1.300075e12, mw_c=9.39)
-
-    print(len(w1.pos))
-    print(len(w2.pos))
-
-    x1 = w1.x
-    y1 = w1.y
-
-    x2 = w2.x
-    y2 = w2.y
-
-    plt.scatter(x1, y1, color = 'red', zorder =1, alpha=0.5)
-    plt.scatter(x2, y2, color = 'green', zorder =1, alpha=0.5)
-
-    #plt.show()
-
-    print(w1.pos[0].xyz.value)
-    print(w1.pos.xyz.value.transpose().shape)
-
-    p1s = w1.pos.xyz.value.transpose()
-    p2s = w2.pos.xyz.value.transpose()
-
-    annulus_parts = []
-
-    for c in p1s:
-        if c in p2s:
-            #print(c)
-            pass
-        else:
-            print('not', c)
-            annulus_parts.append(c)
-
-    w3 = CartesianRepresentation(np.array(annulus_parts).transpose())
-
-    plt.scatter(w3.x, w3.y, color = 'blue', alpha = 0.5)
-    plt.show()
+    s_mass = 1e10
+    file_name = 'heavy_sag_7_10'
     
+    w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
+    half_to_one_tidal = int_sgr.select_tidal_annulus(w0, ann_low = 0.5, ann_high = 1.0, sat_mass = s_mass)
+
+    in_5_tidal = int_sgr.select_tidal_annulus(w0, ann_high = 0.5, sat_mass = s_mass)
+
+    def get_dps(w, smass, title):
+        print('***', title, '***')
+        orbit, pot = int_sgr.integrate(w)
+        com_p, com_v, com_index = int_sgr.calc_com(smass, w)
+        return int_sgr.calc_dps(smass, orbit, pot, com_index, verbose=False, show_plot=False)
+
+    print(get_dps(w0, s_mass, 'Full stream'))
+    print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal'))
+    print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal'))
+
+    s_mass = 1e8
+    file_name = 'centroid_part_1000'
+    
+    w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+
+    half_to_one_tidal = int_sgr.select_tidal_annulus(w0, ann_low = 0.5, ann_high = 1.0, sat_mass = s_mass)
+
+    in_5_tidal = int_sgr.select_tidal_annulus(w0, ann_high = 0.5, sat_mass = s_mass)
+
+    print(get_dps(w0, s_mass, 'Full stream'))
+    print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal'))
+    print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal'))
+
+def subtract_mean():
+    file_name = 'centroid_part_1000'
+    w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+    orbit, pot = int_sgr.integrate(w0)
+    com_p, com_v, com_index = int_sgr.calc_com(1e8, w0)
+
+    delta_pos = \
+            orbit.pos.xyz.value - orbit.pos.xyz.value[:,:,com_index,None]
+    delta_vel = \
+            orbit.vel.d_xyz.value - orbit.vel.d_xyz.value[:,:,com_index,None]
+
+    r_tidals = np.array([i + 2 for i in range(251)])
+
+    normed_pos = delta_pos / r_tidals[:, None]
+    normed_vel = delta_vel / r_tidals[:, None]
+
+    print(delta_pos.shape)
+    print(delta_vel.shape)
+    
+    w2 = np.append(normed_pos, normed_vel, axis=0)
+
+    print(w2.transpose().shape)
+
+    w2 =w2.transpose()
+
+    print(w2.shape)
+
+    com = w2[0,:,:]
+
+    print(com)
+
+    com_mag = np.linalg.norm(com, axis=1)
+
+    print(com_mag)
+
+    print('com min', np.min(com_mag))
+
+    print('index', np.where(com_mag == np.min(com_mag)))
     
 def __main__():
     test_c = 32.089
@@ -797,34 +825,8 @@ def __main__():
     #write_tidal_radius_file(sat_mass=1e8*u.Msun, in_file='centroid_part_1000', out_file_name='parts_tidal_first_ts', ts = -1)
     #integrate(input_file='heavy_sag_core',sat_mass=1e9)
 
-    #select_in_tidal_radius()
-
-    #test_dyn_fric('parts_tidal_first_ts')
-
-    #test_dyn_fric_sc()
+    #subtract_mean()
 
     adrian_dps_test()
-
-    
-
-    if False:
-
-        p_m = 0.9
-        p_c = 1.1
-
-        det_mat = []
-
-        for p_m in [0.8, 0.9, 1.0, 1.1, 1.2]:
-            det_list = []
-            for p_c in [0.8, 0.9, 1.0, 1.1, 1.2]:            
-                print('M =', p_m)
-                print('c =', p_c)
-                det = run_normal_sag(p_m, p_c)
-                print('det:', det)
-                #run_heavy_sag()
-                det_list.append(det)
-            det_mat.append(det_list)
-
-        print(np.array(det_mat))
 
 __main__()

@@ -186,7 +186,7 @@ def calc_com(sat_mass, ps_vect):
     return boundness_list[0][1], boundness_list[0][2], boundness_list[0][3]
 
 
-def calc_dps(part_mass, orbit, pot, com_index, \
+def calc_dps(sat_mass, orbit, pot, com_index, \
              m_mw = 130.0075e10 * u.Msun, \
              c_mw = 32.089 * u.kpc, \
              ylims = [0.1, 500], \
@@ -206,18 +206,21 @@ def calc_dps(part_mass, orbit, pot, com_index, \
         curr_vel = orbit[ts].vel[com_index]
         r_i = np.linalg.norm(curr_pos.xyz) * u.kpc
         
-        r_tide_i = r_i * (1e8 * u.Msun / 3 / hernquist_menc(m_mw, r_i, c_mw)) ** (1/3)
+        #r_tide_i = r_i * (sat_mass * u.Msun / 3 / hernquist_menc(m_mw, r_i, c_mw)) ** (1/3)
+        r_tide_i = r_tidal(sat_mass * u.Msun, m_mw, c_mw, r_i)
         
-        vesc_i = np.sqrt((2 * G * 1e8 * u.Msun / r_tide_i))
+        vesc_i = np.sqrt((2 * G * sat_mass * u.Msun / r_tide_i))
 
         tidal_radii.append(r_tide_i.to(u.kpc).value)
-        escape_velocities.append(vesc_i.to(u.km / u.s).value)
+        escape_velocities.append(vesc_i.to(u.kpc / u.Myr).value)
 
     # dictionary from a timestep to a list of each particle's psvectors (ndarray)
     # calculate the normalized ps vector for each particle at each timestep
     ps_vectors = {}
     list_ps_indices = []
     num_particles = len(orbit[0].pos)
+
+    #print('r tide', tidal_radii)
 
     if verbose:
         print('normalizing positions and velocities ... ')
@@ -228,27 +231,41 @@ def calc_dps(part_mass, orbit, pot, com_index, \
     if verbose:
         print(pos_table.shape)
 
-    #for part_index in range(num_particles):
-    for part_index in range(num_particles):
-        if verbose:
-            if part_index == com_index:
-                continue
-            if part_index % 10 == 0:
-                print('part_index', part_index)
-        
-        ps_vectors[part_index] = {}
-        for ts in range(orbit.ntimes):
-            pos_x = (pos_table[0][ts][part_index] - pos_table[0][ts][com_index]) / tidal_radii[ts]
-            pos_y = (pos_table[1][ts][part_index] - pos_table[1][ts][com_index]) / tidal_radii[ts]
-            pos_z = (pos_table[2][ts][part_index] - pos_table[2][ts][com_index]) / tidal_radii[ts]
 
-            vel_x = (vel_table[0][ts][part_index] - vel_table[0][ts][com_index]) / escape_velocities[ts]
-            vel_y = (vel_table[1][ts][part_index] - vel_table[1][ts][com_index]) / escape_velocities[ts]
-            vel_z = (vel_table[2][ts][part_index] - vel_table[2][ts][com_index]) / escape_velocities[ts]
+    if False:
+        for part_index in range(num_particles):
+            if verbose:
+                if part_index == com_index:
+                    continue
+                if part_index % 10 == 0:
+                    print('part_index', part_index)
+            
+            ps_vectors[part_index] = {}
+            for ts in range(orbit.ntimes):
+                pos_x = (pos_table[0][ts][part_index] - pos_table[0][ts][com_index]) / tidal_radii[ts]
+                pos_y = (pos_table[1][ts][part_index] - pos_table[1][ts][com_index]) / tidal_radii[ts]
+                pos_z = (pos_table[2][ts][part_index] - pos_table[2][ts][com_index]) / tidal_radii[ts]
 
-            ps_vectors[part_index][ts] = np.array(\
-                [pos_x, pos_y, pos_z, vel_x, vel_y, vel_z])
+                vel_x = (vel_table[0][ts][part_index] - vel_table[0][ts][com_index]) / escape_velocities[ts]
+                vel_y = (vel_table[1][ts][part_index] - vel_table[1][ts][com_index]) / escape_velocities[ts]
+                vel_z = (vel_table[2][ts][part_index] - vel_table[2][ts][com_index]) / escape_velocities[ts]
 
+                ps_vectors[part_index][ts] = np.array(\
+                    [pos_x, pos_y, pos_z, vel_x, vel_y, vel_z])
+
+    
+    delta_pos = \
+            orbit.pos.xyz.value - orbit.pos.xyz.value[:,:,com_index,None]
+    delta_vel = \
+            orbit.vel.d_xyz.value - orbit.vel.d_xyz.value[:,:,com_index,None]
+
+    r_tidals = np.array(tidal_radii)
+    v_escs = np.array(escape_velocities)
+
+    normed_pos = delta_pos / r_tidals[:, None]
+    normed_vel = delta_vel / v_escs[:, None]
+
+    ps_vectors = np.append(normed_pos, normed_vel, axis=0).transpose()
 
     # find the minimum ps_vector magnitude for each particle
 
@@ -263,18 +280,14 @@ def calc_dps(part_mass, orbit, pot, com_index, \
             if part_index % 10 == 0:
                 print('mix dps vect', part_index)
 
-        curr_part = ps_vectors[part_index]
+        curr_part = ps_vectors[part_index,:,:]
 
-        curr_min_ps = None
-        curr_min_mag = 1e99
-        
-        for ts in range(orbit.ntimes):
-            curr_ps_mag = np.linalg.norm(ps_vectors[part_index][ts])
-            if curr_ps_mag < curr_min_mag:
-                curr_min_mag = curr_ps_mag
-                curr_min_ps = ps_vectors[part_index][ts]
+        curr_dps_mags = np.linalg.norm(curr_part, axis=1)
 
-        min_ps_vects[part_index] = curr_min_ps
+        # get the timestep where the dps_mag is the smallest
+        min_ts = np.where(curr_dps_mags == np.min(curr_dps_mags))[0][0]
+
+        min_ps_vects[part_index] = curr_part[min_ts]
 
     # append the minimum ps-vector magnitude for each particle to a matrix        
     min_matrix = np.array(list(min_ps_vects.values()))
@@ -288,15 +301,16 @@ def calc_dps(part_mass, orbit, pot, com_index, \
     
     # calculate the determinant (np.linalg.det())
     toreturn = np.linalg.det(cov_mat)
-    print('Determinant')
-    print(toreturn)
+    if verbose:
+        print('Determinant')
+        print(toreturn)
     
     # calculate the minimum magnitude of this dps vector
 
     if len(ps_vectors) < 10:
-        part_indices = ps_vectors.keys()
+        part_indices = list(range(ps_vectors.shape[0]))
     else:
-        part_indices = random.sample(ps_vectors.keys(), 10)
+        part_indices = random.sample(list(range(ps_vectors.shape[0])), 10)
 
     # plot the dps (log on the yscale, ylim is [0.1, 50], xlim is [0, 2650] - that should be different
     # plt.hlines(2, 0, 2650, linestyles = 'dashed'
@@ -367,11 +381,12 @@ def plot_bound_parts():
     # TODO
     pass
 
-def select_in_tidal(w0,\
-                    r_t_frac=0.5,\
+def select_tidal_annulus(w0,\
+                    ann_low = 0.0,\
+                    ann_high = 0.5,\
                     sat_mass=1e8,\
                     mw_mass=130.0075e10,\
-                    mw_c=9.39):
+                    mw_c=32.089):
     com_p, com_v, com_index = calc_com(sat_mass, w0)
 
 
@@ -384,7 +399,7 @@ def select_in_tidal(w0,\
 
     for p_index in range(len(distances_to_com)):
         curr_dist = distances_to_com[p_index]
-        if curr_dist < tidal_radius * r_t_frac:
+        if (ann_low * tidal_radius) <= curr_dist < (ann_high * tidal_radius):
             selected_indices.append(p_index)
 
     return w0[selected_indices]
