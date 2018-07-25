@@ -193,9 +193,19 @@ def calc_dps(sat_mass, orbit, pot, com_orbit, \
              plot_title = 'Dps of 10 particles (within 0.5 * tidal radius)',\
              show_plot=True,\
              verbose=True):
+
+    debug = False
     
     if verbose:
         print(m_mw, c_mw)
+
+    if verbose:
+        print('orbit pos units', orbit.pos.xyz.unit)
+        print('orbit vel units', orbit.vel.d_xyz.unit)
+
+        print('orbit pos units', com_orbit.pos.xyz.unit)
+        print('orbit vel units', com_orbit.vel.d_xyz.unit)
+
 
     tidal_radii = []
     escape_velocities = []
@@ -223,19 +233,37 @@ def calc_dps(sat_mass, orbit, pot, com_orbit, \
 
     if verbose:
         print('normalizing positions and velocities ... ')
+
+    if debug:
+        print('orbit pos', orbit.pos.xyz[:,0,0])
+        print('orbit vel', orbit.vel.d_xyz[:,0,0])
+
+    if debug:
+        print('com pos', com_orbit.pos.xyz[:,0])
+        print('com vel', com_orbit.vel.d_xyz[:,0])
     
     delta_pos = \
             orbit.pos.xyz.value - com_orbit.pos.xyz.value[:,:,None]
     delta_vel = \
             orbit.vel.d_xyz.value - com_orbit.vel.d_xyz.value[:,:,None]
 
-    #print(delta_pos.shape)
+    if debug:
+        print('delta pos', delta_pos[:, 0])
+        print('delta vel', delta_vel[:, 0])
 
     r_tidals = np.array(tidal_radii)
     v_escs = np.array(escape_velocities)
 
+    if debug:
+        print('r tidals', r_tidals[0])
+        print('v esc   ', v_escs[0])
+
     normed_pos = delta_pos / r_tidals[:, None]
     normed_vel = delta_vel / v_escs[:, None]
+
+    if debug:
+        print('normed pos', normed_pos[:, 0])
+        print('normed vel', normed_vel[:, 0])
 
     ps_vectors = np.append(normed_pos, normed_vel, axis=0).transpose()
 
