@@ -693,15 +693,15 @@ def test_dyn_fric_sc():
 
     print(len(w0.pos))
 
-    com_p, com_v, com_index = int_sgr.calc_com(1e8, w0)
+    com_p, com_v, com_index = int_sgr.calc_com(w0)
     print('p', com_p)
     print('v', com_v)
     print('index', com_index)
 
     w1 = gd.PhaseSpacePosition(pos=com_p, vel=com_v)
 
-    orbit_light, pot = int_sgr.integrate_dyn_fric(w1, sat_mass=1e8, verbose=True)
-    orbit_heavy, pot = int_sgr.integrate_dyn_fric(w1, sat_mass=1e10, verbose=True)
+    orbit_light, pot = int_sgr.integrate_dyn_fric(w1, verbose=True)
+    orbit_heavy, pot = int_sgr.integrate_dyn_fric(w1, verbose=True)
 
     timesteps = [ts * -10.67 for ts in range(orbit.ntimes)]
 
@@ -750,46 +750,46 @@ def adrian_dps_test():
     
     w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
-    half_to_one_tidal = int_sgr.select_tidal_annulus(w0, ann_low = 0.5, ann_high = 1.0, sat_mass = s_mass)
+    half_to_one_tidal = int_sgr.select_tidal_annulus(w0, ann_low = 0.3, ann_high = 1.0, sat_mass = s_mass)
 
-    in_5_tidal = int_sgr.select_tidal_annulus(w0, ann_high = 0.5, sat_mass = s_mass)
+    in_5_tidal = int_sgr.select_tidal_annulus(w0, ann_high = 0.3, sat_mass = s_mass)
 
-    com_p, com_v, com_index = int_sgr.calc_com(s_mass, w0)
+    com_p, com_v, com_index = int_sgr.calc_com(w0)
 
-    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v), sat_mass= s_mass)
+    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v))
 
     def get_dps(w, smass, title, com_orbit):
         print('***', title, '***')
         print('Num parts', w.shape)
         orbit, pot = int_sgr.integrate(w)
-        return int_sgr.calc_dps(smass, orbit, pot, com_orbit, verbose=False, show_plot=True)
+        return int_sgr.calc_dps(smass, orbit, pot, com_orbit, verbose=False, show_plot=False)
 
-    print(get_dps(w0, s_mass, 'Full stream', com_orbit))
-    print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal', com_orbit))
-    print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal', com_orbit))
+    print('%1.3e' % get_dps(w0, s_mass, 'Full stream', com_orbit))
+    print('%1.3e' % get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal', com_orbit))
+    print('%1.3e' % get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal', com_orbit))
 
     s_mass = 1e8
     file_name = 'centroid_part_1000'
     
     w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
-    com_p, com_v, com_index = int_sgr.calc_com(s_mass, w0)
+    com_p, com_v, com_index = int_sgr.calc_com(w0)
 
-    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v), sat_mass= s_mass)
+    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v))
 
     half_to_one_tidal = int_sgr.select_tidal_annulus(w0, ann_low = 0.5, ann_high = 1.0, sat_mass = s_mass)
 
     in_5_tidal = int_sgr.select_tidal_annulus(w0, ann_high = 0.5, sat_mass = s_mass)
 
-    print(get_dps(w0, s_mass, 'Full stream', com_orbit))
-    print(get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal', com_orbit))
-    print(get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal', com_orbit))
+    print('%1.3e' % get_dps(w0, s_mass, 'Full stream', com_orbit))
+    print('%1.3e' % get_dps(half_to_one_tidal, s_mass, '0.5 to 1 tidal', com_orbit))
+    print('%1.3e' % get_dps(in_5_tidal, s_mass, 'Within 0.5 tidal', com_orbit))
 
 def subtract_mean():
     file_name = 'centroid_part_1000'
     w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
     orbit, pot = int_sgr.integrate(w0)
-    com_p, com_v, com_index = int_sgr.calc_com(1e8, w0)
+    com_p, com_v, com_index = int_sgr.calc_com(w0)
 
     delta_pos = \
             orbit.pos.xyz.value - orbit.pos.xyz.value[:,:,com_index,None]
@@ -830,9 +830,9 @@ def n_particles_test():
     
     w0 = int_sgr.read_file(file_name, columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
-    com_p, com_v, com_index = int_sgr.calc_com(s_mass, w0)
+    com_p, com_v, com_index = int_sgr.calc_com(w0)
 
-    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v), sat_mass= s_mass)
+    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v))
 
     half_to_one_tidal = int_sgr.select_tidal_annulus(w0, ann_low = 0.5, ann_high = 1.0, sat_mass = s_mass)
 
@@ -845,9 +845,9 @@ def n_particles_test():
     def select_n_parts(w, n):
         return gd.PhaseSpacePosition(w.pos[:n], w.vel[:n])
 
-    for n in range(2, 10):
+    for n in range(2, 13):
         w_n = select_n_parts(half_to_one_tidal, n)
-        print(get_dps(w_n, s_mass, '%i particles' % n, com_orbit))
+        print('%1.3e' % get_dps(w_n, s_mass, '%i particles' % n, com_orbit))
     
 def __main__():
     test_c = 32.089
@@ -859,7 +859,7 @@ def __main__():
     #integrate(input_file='heavy_sag_core',sat_mass=1e9)
 
     #subtract_mean()
-    adrian_dps_test()
-    #n_particles_test()
+    #adrian_dps_test()
+    n_particles_test()
 
 __main__()

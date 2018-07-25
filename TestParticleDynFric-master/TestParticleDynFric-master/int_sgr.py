@@ -69,7 +69,6 @@ def read_file(file_name,\
     
 
 def integrate(w0,\
-              sat_mass = 1e8,\
               pot=gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
               timestep = -10.67,\
               ntimesteps = 250,\
@@ -151,10 +150,12 @@ def integrate_dyn_fric(w0,\
 
     return orbit, pot
 
-def calc_com(sat_mass, ps_vect):
+def calc_com(ps_vect):
 
-    part_mass = (sat_mass / len(ps_vect.pos)) * u.Msun
-    GM_value = (part_mass * part_mass * G).to(u.g * u.cm * u.cm * u.cm / u.s / u.s).value
+    #part_mass = (sat_mass / len(ps_vect.pos)) * u.Msun
+    #GM_value = (part_mass * part_mass * G).to(u.g * u.cm * u.cm * u.cm / u.s / u.s).value
+
+    GM_value = 1.0 # the actual mass is irrelevant, it's the relative mass that matters
 
     coords = ps_vect.pos.xyz.transpose()
     vels = ps_vect.vel.d_xyz.transpose()
@@ -181,6 +182,7 @@ def calc_com(sat_mass, ps_vect):
         # the last index here is the particle ID
         boundness_list.append((particles_energy, coords[i], vels[i], i))
 
+    # sorts the particles by their binding energy
     boundness_list = sorted(boundness_list, key=lambda curr_tup: curr_tup[0])
 
     return boundness_list[0][1], boundness_list[0][2], boundness_list[0][3]
@@ -191,8 +193,8 @@ def calc_dps(sat_mass, orbit, pot, com_orbit, \
              c_mw = 32.089 * u.kpc, \
              ylims = [0.1, 500], \
              plot_title = 'Dps of 10 particles (within 0.5 * tidal radius)',\
-             show_plot=True,\
-             verbose=True):
+             show_plot=False,\
+             verbose=False):
 
     debug = False
     
@@ -377,17 +379,13 @@ def orbit_video(orb, folder_name, axes=['x', 'y']):
         print((save_counter - 10000), end = ' ')
     print('Saved images')
 
-def plot_bound_parts():
-    # TODO
-    pass
-
 def select_tidal_annulus(w0,\
                     ann_low = 0.0,\
                     ann_high = 0.5,\
                     sat_mass=1e8,\
                     mw_mass=130.0075e10,\
                     mw_c=32.089):
-    com_p, com_v, com_index = calc_com(sat_mass, w0)
+    com_p, com_v, com_index = calc_com(w0)
 
 
     distances_to_com =\
