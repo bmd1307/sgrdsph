@@ -9,3 +9,8 @@ TestParticleDynFric-master/TestParticleDynFric-master/*/*
 *.exe
 *.mod
 TestParticleDynFric-master/TestParticleDynFric-master/fdf.pro
+TestParticleDynFric-master/TestParticleDynFric-master/ascii_to_initial_sag.py
+TestParticleDynFric-master/TestParticleDynFric-master/create_initial_sag.py
+TestParticleDynFric-master/TestParticleDynFric-master/debug_gala.py
+TestParticleDynFric-master/TestParticleDynFric-master/test_gala_int.py
+TestParticleDynFric-master/TestParticleDynFric-master/calc_dps.py
