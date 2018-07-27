@@ -5,6 +5,7 @@ from astropy.coordinates import CartesianRepresentation
 from astropy.coordinates import CartesianDifferential
 import astropy.units as u
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -22,6 +23,8 @@ from gala.units import galactic
 
 import random
 
+import os
+
 # helper functions
 
 def hernquist_menc(mtot, r, c):
@@ -29,6 +32,14 @@ def hernquist_menc(mtot, r, c):
 
 def r_tidal(sat_mass, mw_mass, mw_c, r_i):
     return r_i * (sat_mass / 3 / hernquist_menc(mw_mass, r_i, mw_c)) ** (1/3)
+
+def file_string(x, y, z, vx, vy, vz):
+    return '%15.5e' % x + \
+           '%15.5e' % y + \
+           '%15.5e' % z + \
+           '%15.5e' % vx + \
+           '%15.5e' % vy + \
+           '%15.5e' % vz + '\n'
 
 # main functions
 
@@ -66,7 +77,14 @@ def read_file(file_name,\
 
     return gd.PhaseSpacePosition(pos=positions, vel=velocities)
 
+def get_potential(total_mass = 130.0075e10*u.Msun,\
+                  r_scale = 18.927757889861788 * u.kpc,\
+                  mw_conc = 9.39):
     
+    a_term = math.sqrt(2 * (math.log(1 + mw_conc) - mw_conc / (1+mw_conc)))
+    mw_a = r_scale * a_term
+
+    return gp.HernquistPotential(m = total_mass, c = mw_a, units=galactic)
 
 def integrate(w0,\
               pot=gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
@@ -347,6 +365,11 @@ def calc_dps(sat_mass, orbit, pot, com_orbit, \
 def orbit_video(orb, folder_name, axes=['x', 'y']):
     save_counter = 10000
 
+    if folder_name in os.listdir(os.getcwd()):
+        raise OSError('Warning: folder %s already exists in this directory' % folder_name)
+
+    os.mkdir(folder_name)
+
     orb_arr = [o for o in orb]
     timesteps = orb.t.value.tolist() # These are Myr
     
@@ -354,12 +377,16 @@ def orbit_video(orb, folder_name, axes=['x', 'y']):
     timesteps.reverse()
     
     
+    
     for i in range(len(orb_arr)):
         curr_ts = timesteps[i]
         o = orb_arr[i]
-        
-        curr_fig = o.plot(axes, s = 2.0, edgecolors='none', color = 'black')
-        curr_fig.set_size_inches(6.0, 5.0)
+
+        curr_fig, ax = plt.subplots()    
+
+        plt.scatter(o.x, o.y, s = 2.0, edgecolors='none', color = 'black')
+
+        plt.gca().set_aspect('equal', adjustable='box')
 
         plt.title('Sgr dSph orbit (t=%1.2f Myr)' % curr_ts)
 
@@ -369,10 +396,9 @@ def orbit_video(orb, folder_name, axes=['x', 'y']):
         plt.xlim([-120, 120])
         plt.ylim([-120, 120])
 
-        plt.gca().set_aspect('equal', adjustable='box')
+        curr_fig.set_size_inches(6.0, 5.0)
         
-        curr_fig.savefig(\
-            'gaiavideos\\' + folder_name + '\\p' + str(save_counter)[1:] + '.png')
+        curr_fig.savefig(folder_name + '\\p' + str(save_counter)[1:] + '.png')
         curr_fig.clear()
         plt.close(curr_fig)
         save_counter = save_counter + 1
@@ -402,5 +428,30 @@ def select_tidal_annulus(w0,\
 
     return w0[selected_indices]
 
+def export(pos, vel, sat_mass, out_f_name, pos_units = u.kpc, vel_units = (u.km / u.s), mass_units = u.Msun):
+    out_f = open(out_f_name, 'w')
+
+
+    if isinstance(pos, CartesianRepresentation):
+        pos = pos.xyz.to(pos_units).value
+    elif isinstance(pos, u.Quantity):
+        pos = pos.to(pos_units).value
+
+    if isinstance(vel, CartesianDifferential):
+        vel = vel.d_xyz.to(vel_units).value
+    elif isinstance(vel, u.Quantity):
+        vel = vel.to(vel_units).value
+
+    if isinstance(sat_mass, u.Quantity):
+        sat_mass = sat_mass.to(mass_units).value
+
+    outlines = ['%15.5e' % sat_mass + '\n']
+
+    for n in range(pos.shape[1]):
+        outlines.append(file_string(pos[0, n], pos[1, n], pos[2, n], \
+                                    vel[0, n], vel[1, n], vel[2, n],))
+
+    out_f.writelines(outlines)
+    out_f.close()
 
 

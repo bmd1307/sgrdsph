@@ -138,6 +138,18 @@ def select_particles():
     fig.get_axes()[1].set_title('Sgr Stream r < 0.5 r_tidal')
     fig.show()
 
+def test_export(file_name):
+    sat_mass = 1e8 * u.Msun
+    w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+
+    w_half_tidal = int_sgr.select_tidal_annulus(\
+                    w0, ann_low = 0.0, ann_high = 0.5,\
+                    sat_mass=1e8, mw_mass=130.0075e10, mw_c=32.089)
+
+    int_sgr.export(w_half_tidal.pos, w_half_tidal.vel, sat_mass, file_name)
+
+    print('%s has been written' % file_name)
+
     
 
 def __main__():
@@ -148,6 +160,8 @@ def __main__():
 
     #animate_orbit()
 
-    select_particles()
+    #select_particles()
+
+    test_export('sag_in_half_tidal')
 
 __main__()
