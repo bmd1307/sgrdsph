@@ -58,6 +58,24 @@ def integrate_dyn_fric():
     fig.get_axes()[1].set_title('Sgr Stream (Present)')
     fig.show()
 
+def plot_dps():
+    # the parameters for the Sgr dSph
+    sag_mass = 1e8
+    
+    # reads the coordinates from the file to w0
+    w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
+
+    orbit, pot = int_sgr.integrate(w0)
+
+    # finds the center of mass of the particle distribution and integrates its orbit
+    com_p, com_v, com_index = int_sgr.calc_com(w0)
+    com_orbit,pot = int_sgr.integrate(gd.PhaseSpacePosition(pos=com_p, vel=com_v))
+
+    # calculates the generalized variance of the particle distribution in verbose mode, and displays the dps plot
+    gv = int_sgr.calc_dps(sag_mass, orbit, pot, com_orbit, \
+                          plot_title = 'Example Dps Plot', show_plot=True, verbose=True)
+    print('Generalized Variance:', gv)
+
 def vary_potential():
 
     # the normal parameters for the potential and the Sgr dSph
@@ -166,9 +184,9 @@ def test_export(file_name):
 def __main__():
     # Uncomment the function you would like to run
     
-    integrate_normal_orbit()
+    #integrate_normal_orbit()
     #integrate_dyn_fric()
-    #plot_dps()
+    plot_dps()
     #vary_potential()
     #animate_orbit()
     #select_particles()
