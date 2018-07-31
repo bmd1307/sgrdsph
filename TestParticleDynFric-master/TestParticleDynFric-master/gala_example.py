@@ -22,44 +22,32 @@ from gala.units import galactic
 import int_sgr
 
 def integrate_normal_orbit():
-    sat_mass = 1e8 # Msun
-
-    mw_conc = 9.39
-    mw_r_scale = 18.927757889861788 * u.kpc
-
-    mw_mass = 130.0075e10*u.Msun
-    #mw_c = 32.089 * u.kpc
-    a_term = math.sqrt(2 * (math.log(1 + mw_conc) - mw_conc / (1+mw_conc)))
-    mw_c = mw_r_scale * a_term
-
     w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
-
-    #pot = gp.HernquistPotential(m=mw_mass,c =mw_c, units=galactic)
     
-    orbit, pot = int_sgr.integrate(w0)
+    orbit, pot = int_sgr.integrate(w0, verbose=True)
 
-    orbit[-1].plot().show()
-    orbit[0].plot().show()
+    fig = orbit[-1].plot()
+    fig.get_axes()[1].set_title('Sgr Stream (2.65 Gyr ago)')
+    fig.show()
+
+    fig = orbit[0].plot()
+    fig.get_axes()[1].set_title('Sgr Stream (Present)')
+    fig.show()
 
 def integrate_dyn_fric():
     sat_mass = 1e10 # Msun
 
-    mw_conc = 9.39
-    mw_r_scale = 18.927757889861788 * u.kpc
-
-    mw_mass = 130.0075e10*u.Msun
-    #mw_c = 32.089 * u.kpc
-    a_term = math.sqrt(2 * (math.log(1 + mw_conc) - mw_conc / (1+mw_conc)))
-    mw_c = mw_r_scale * a_term
-
     w0 = int_sgr.read_file('heavy_sag_7_10', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
-
-    #pot = gp.HernquistPotential(m=mw_mass,c =mw_c, units=galactic)
     
-    orbit, pot = int_sgr.integrate_dyn_fric(w0, sat_mass = 1e8)
+    orbit, pot = int_sgr.integrate_dyn_fric(w0, sat_mass = sat_mass, verbose=True)
 
-    orbit[-1].plot().show()
-    #orbit[0].plot().show()
+    fig = orbit[-1].plot()
+    fig.get_axes()[1].set_title('Sgr Stream (2.65 Gyr ago)')
+    fig.show()
+
+    fig = orbit[0].plot()
+    fig.get_axes()[1].set_title('Sgr Stream (Present)')
+    fig.show()
 
 def vary_potential():
 
@@ -144,7 +132,9 @@ def test_export(file_name):
     
 
 def __main__():
-    #integrate_normal_orbit()
+    # Uncomment the function you would like to run
+    
+    integrate_normal_orbit()
     #integrate_dyn_fric()
     #plot_dps()
     #vary_potential()
@@ -153,6 +143,6 @@ def __main__():
 
     #select_particles()
 
-    test_export('sag_in_half_tidal')
+    #test_export('sag_in_half_tidal')
 
 __main__()
