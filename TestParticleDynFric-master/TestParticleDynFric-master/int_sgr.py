@@ -1,4 +1,4 @@
-# module for integr
+# module for integrating Sgr dSph and calculating its generalized variance
 
 from astropy.constants import G
 from astropy.coordinates import CartesianRepresentation
@@ -25,14 +25,26 @@ import random
 
 import os
 
-# helper functions
 
+####################
+# helper functions #
+####################
+
+
+# calculates the mass of a hernquist profile of a total mass mtot within r. c is the characteristic radius
 def hernquist_menc(mtot, r, c):
     return mtot * r * r / (r + c) / (r + c)
 
+
+# calculates the tidal radius using the mass of the satellite, the total milky way mass, the characteristic radius
+# of the milky way, and the galactocentric radius of the satellite (Eq. 6, Price-Whelan et al. 2013)
 def r_tidal(sat_mass, mw_mass, mw_c, r_i):
     return r_i * (sat_mass / 3 / hernquist_menc(mw_mass, r_i, mw_c)) ** (1/3)
 
+
+# returns a string of a particles coordinates with the default format of the export function
+# each value is right-justified, printed with 15 characters, and prints 5 digits past the decimal point
+# <xn> <yn> <zn> <vxn> <vyn> <vzn> 
 def file_string(x, y, z, vx, vy, vz):
     return '%15.5e' % x + \
            '%15.5e' % y + \
@@ -41,8 +53,18 @@ def file_string(x, y, z, vx, vy, vz):
            '%15.5e' % vy + \
            '%15.5e' % vz + '\n'
 
-# main functions
 
+##################
+# main functions #
+##################
+
+
+# reads a text file containing the coordinates, and saves them to a gala PhaseSpacePosition object
+# the file to read is specified by file_name
+# 'columns' encodes the zero-based indices of the columns to read
+#   (columns: [x_col, y_col, z_col, vx_col, vy_col, vz_col])
+# pos_unit and vel_unit specify the units of the coordinates in the file (default: kpc and km/s)
+# skip_lines contain the zero based indices of the lines which should be skipped
 def read_file(file_name,\
               columns = [0, 1, 2, 3, 4, 5],\
               pos_unit = u.kpc, \
@@ -77,6 +99,10 @@ def read_file(file_name,\
 
     return gd.PhaseSpacePosition(pos=positions, vel=velocities)
 
+
+# returns a HernquistPotential with a total_mass, a scale radius and a concentration parameter.
+# The scale radius and concentration parameter are used to calculate the characteristic radius with the equation:
+# r_characteristic = r_scale * math.sqrt(2 * (math.log(1 + mw_conc) - mw_conc / (1+mw_conc)))
 def get_potential(total_mass = 130.0075e10*u.Msun,\
                   r_scale = 18.927757889861788 * u.kpc,\
                   mw_conc = 9.39):
@@ -86,6 +112,10 @@ def get_potential(total_mass = 130.0075e10*u.Msun,\
 
     return gp.HernquistPotential(m = total_mass, c = mw_a, units=galactic)
 
+
+# runs an integration with the initial conditions w0, through the potential pot, for a given number of timesteps
+# with a given width.
+# when verbose = True, the integration is timed, and the time is printed to the console
 def integrate(w0,\
               pot=gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
               timestep = -10.67,\
@@ -107,6 +137,13 @@ def integrate(w0,\
     
     return orbit, pot
 
+
+# runs an integration with the initial conditions w0, through the potential pot, for a given number of timesteps
+# with a given width, and including dynamical friction
+# when verbose = True, the integration is timed, and the time is printed to the console
+# NOTE: this function also requires the mass of the satellite to calculate the dynamical friction
+# Dynamical friction is calculated by Eq. 4 of Besla et al. 2007:
+# https://arxiv.org/pdf/astro-ph/0703196.pdf
 def integrate_dyn_fric(w0,\
               sat_mass = 1e8,\
               pot=gp.HernquistPotential(m=130.0075e10*u.Msun,c = 32.089, units=galactic),\
@@ -168,6 +205,10 @@ def integrate_dyn_fric(w0,\
 
     return orbit, pot
 
+
+# calculates the center of mass from a given set of phase-space vectors
+# the center of mass here is the most bound particle, or the particle with the lowest gravitational potential energy
+# this function returns a tuple containing the CoM's position, velocity, and index within the orbit object
 def calc_com(ps_vect):
 
     #part_mass = (sat_mass / len(ps_vect.pos)) * u.Msun
@@ -206,6 +247,10 @@ def calc_com(ps_vect):
     return boundness_list[0][1], boundness_list[0][2], boundness_list[0][3]
 
 
+# calculates the generalized variance of an orbit intergration
+# when show_plot is True, a plot is displayed approximating figure 3 of Price-Whelan et al. 2013:
+# https://arxiv.org/pdf/1308.2670.pdf
+# verbose = True prints details about the generalized variance calculation
 def calc_dps(sat_mass, orbit, pot, com_orbit, \
              m_mw = 130.0075e10 * u.Msun, \
              c_mw = 32.089 * u.kpc, \
@@ -361,7 +406,11 @@ def calc_dps(sat_mass, orbit, pot, com_orbit, \
 
     return toreturn
 
-def orbit_video(orb, folder_name, axes=['x', 'y']):
+
+# produces a series of images from an orbit integration which can be made into an animation.
+# the images are saved in 'folder_name'. An error is raised if this folder already exists
+def orbit_video(orb, folder_name):
+    # this counter expects that less than 10000 images will be made
     save_counter = 10000
 
     if folder_name in os.listdir(os.getcwd()):
@@ -375,14 +424,13 @@ def orbit_video(orb, folder_name, axes=['x', 'y']):
     orb_arr.reverse()
     timesteps.reverse()
     
-    
-    
     for i in range(len(orb_arr)):
         curr_ts = timesteps[i]
         o = orb_arr[i]
 
         curr_fig, ax = plt.subplots()    
 
+        # to keep the axes the same sizes in each frame, the plot function from gala is not used
         plt.scatter(o.x, o.y, s = 2.0, edgecolors='none', color = 'black')
 
         plt.gca().set_aspect('equal', adjustable='box')
@@ -404,6 +452,11 @@ def orbit_video(orb, folder_name, axes=['x', 'y']):
         print((save_counter - 10000), end = ' ')
     print('Saved images')
 
+
+# selects the particles from the PhaseSpacePosition object w0 within ann_low * r_tidal and ann_high * r_tidal
+# the satellite mass (sat_mass), Milky Way mass (mw_mass) and characteristic radius (mw_c) are required to
+# calculate the tidal radius/
+# the selected particles are returned as a phase space vector
 def select_tidal_annulus(w0,\
                     ann_low = 0.0,\
                     ann_high = 0.5,\
@@ -427,6 +480,18 @@ def select_tidal_annulus(w0,\
 
     return w0[selected_indices]
 
+
+# writes the particles positions and velocities and satellite mass out to a text file.
+# the values are converted to the units specified by pos_units, vel_units and mass_units
+#   (default, kpc, km/s and Msun)
+# the coordinates are written to the file out_f_name, with the format:
+# <stellar mass>
+# <x1> <y1> <z1> <vx1> <vy1> <vy1>
+# <x2> <y2> <z2> <vx2> <vy2> <vy2>
+# <x3> <y3> <z3> <vx3> <vy3> <vy3>
+# ...
+# <xn> <yn> <zn> <vxn> <vyn> <vyn>
+# where each line is formatted via the file_string helper function above
 def export(pos, vel, sat_mass, out_f_name, pos_units = u.kpc, vel_units = (u.km / u.s), mass_units = u.Msun):
     out_f = open(out_f_name, 'w')
 

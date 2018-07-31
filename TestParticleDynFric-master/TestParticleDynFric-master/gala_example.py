@@ -21,6 +21,7 @@ from gala.units import galactic
 
 import int_sgr
 
+
 # shows the format of a simple orbit integration, and plots the orbit at the first and last timestep
 def integrate_normal_orbit():
     # reads the coordinates from the file to w0
@@ -39,6 +40,7 @@ def integrate_normal_orbit():
     fig = orbit[0].plot()
     fig.get_axes()[1].set_title('Sgr Stream (Present)')
     fig.show()
+
     
 # performs a basic integration with dynamical friction, and plots the orbit at the first and last timestep
 def integrate_dyn_fric():
@@ -60,6 +62,7 @@ def integrate_dyn_fric():
     fig.get_axes()[1].set_title('Sgr Stream (Present)')
     fig.show()
 
+
 # demonstrates the plotting feature of the calc_dps function
 def plot_dps():
     # the parameters for the Sgr dSph
@@ -79,6 +82,7 @@ def plot_dps():
     gv = int_sgr.calc_dps(sag_mass, orbit, pot, com_orbit, \
                           ylims = [0.2, 400], plot_title = 'Example Dps Plot', show_plot=True, verbose=True)
     print('Generalized Variance:', gv)
+
 
 # Calculates the generalized variance while varying the potential parameters
 def vary_potential():
@@ -173,6 +177,7 @@ def select_particles():
     fig.get_axes()[1].set_title('Sgr Stream r < 0.5 r_tidal')
     fig.show()
 
+
 # selects particles within 0.5 r_tidal, and saves their coordinates to a text file
 def test_export(file_name):
     sat_mass = 1e8 * u.Msun
@@ -189,7 +194,6 @@ def test_export(file_name):
 
     print('%s has been written' % file_name)
 
-    
 
 def __main__():
     # Uncomment the function you would like to run
