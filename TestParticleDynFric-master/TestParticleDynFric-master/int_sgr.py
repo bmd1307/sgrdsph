@@ -347,7 +347,6 @@ def calc_dps(sat_mass, orbit, pot, com_orbit, \
             curr_min_dps = min(dps_vals)
 
             curr_line = plt.plot(ts_list_myr, dps_vals, lw=0.5)
-            print(curr_line[0].get_c())
             plt.plot([min_dps_time], [curr_min_dps], marker='+', c='black', markersize=10.0, mew=1.5, zorder = 10)
 
         plt.hlines(2, min(ts_list_myr), max(ts_list_myr), linestyles = 'dashed')

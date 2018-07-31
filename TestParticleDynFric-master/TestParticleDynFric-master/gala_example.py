@@ -32,9 +32,6 @@ def integrate_normal_orbit():
     a_term = math.sqrt(2 * (math.log(1 + mw_conc) - mw_conc / (1+mw_conc)))
     mw_c = mw_r_scale * a_term
 
-    print(a_term)
-    print('mw_c', mw_c)
-
     w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
     #pot = gp.HernquistPotential(m=mw_mass,c =mw_c, units=galactic)
@@ -55,9 +52,6 @@ def integrate_dyn_fric():
     a_term = math.sqrt(2 * (math.log(1 + mw_conc) - mw_conc / (1+mw_conc)))
     mw_c = mw_r_scale * a_term
 
-    print(a_term)
-    print('mw_c', mw_c)
-
     w0 = int_sgr.read_file('heavy_sag_7_10', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
     #pot = gp.HernquistPotential(m=mw_mass,c =mw_c, units=galactic)
@@ -66,9 +60,6 @@ def integrate_dyn_fric():
 
     orbit[-1].plot().show()
     #orbit[0].plot().show()
-
-def plot_dps():
-    pass
 
 def vary_potential():
 
