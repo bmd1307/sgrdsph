@@ -21,6 +21,7 @@ from gala.units import galactic
 
 import int_sgr
 
+# shows the format of a simple orbit integration, and plots the orbit at the first and last timestep
 def integrate_normal_orbit():
     # reads the coordinates from the file to w0
     w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
@@ -38,7 +39,8 @@ def integrate_normal_orbit():
     fig = orbit[0].plot()
     fig.get_axes()[1].set_title('Sgr Stream (Present)')
     fig.show()
-
+    
+# performs a basic integration with dynamical friction, and plots the orbit at the first and last timestep
 def integrate_dyn_fric():
     sat_mass = 1e10 # Msun
 
@@ -58,6 +60,7 @@ def integrate_dyn_fric():
     fig.get_axes()[1].set_title('Sgr Stream (Present)')
     fig.show()
 
+# demonstrates the plotting feature of the calc_dps function
 def plot_dps():
     # the parameters for the Sgr dSph
     sag_mass = 1e8
@@ -65,6 +68,7 @@ def plot_dps():
     # reads the coordinates from the file to w0
     w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
 
+    # integrates the orbits with initial conditions w0
     orbit, pot = int_sgr.integrate(w0)
 
     # finds the center of mass of the particle distribution and integrates its orbit
@@ -73,9 +77,10 @@ def plot_dps():
 
     # calculates the generalized variance of the particle distribution in verbose mode, and displays the dps plot
     gv = int_sgr.calc_dps(sag_mass, orbit, pot, com_orbit, \
-                          plot_title = 'Example Dps Plot', show_plot=True, verbose=True)
+                          ylims = [0.2, 400], plot_title = 'Example Dps Plot', show_plot=True, verbose=True)
     print('Generalized Variance:', gv)
 
+# Calculates the generalized variance while varying the potential parameters
 def vary_potential():
 
     # the normal parameters for the potential and the Sgr dSph
@@ -126,6 +131,8 @@ def vary_potential():
     np.set_printoptions(precision=3)
     print(np.reshape(gvs, [len(m_ratios), len(c_ratios), len(rs_ratios)]))
 
+
+# produces and saves the orbit images for an orbit integration to the folder 'heavy sag animation'
 def animate_orbit():
     # reads the coordinates from the file to w0
     w0 = int_sgr.read_file('heavy_sag_7_10', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
@@ -138,6 +145,8 @@ def animate_orbit():
     # NOTE: the folder must not already exist, otherwise an error will be raised
     int_sgr.orbit_video(orbit, 'heavy sag animation')
 
+
+# selects particles within 0.5 r_tidal, and plots them along with the total stream
 def select_particles():
     # reads the coordinates from the file to w0
     w0 = int_sgr.read_file('centroid_part_1000', columns=[3, 4, 5, 6, 7, 8], skip_lines=[0])
@@ -164,6 +173,7 @@ def select_particles():
     fig.get_axes()[1].set_title('Sgr Stream r < 0.5 r_tidal')
     fig.show()
 
+# selects particles within 0.5 r_tidal, and saves their coordinates to a text file
 def test_export(file_name):
     sat_mass = 1e8 * u.Msun
     # reads the coordinates from the file to w0
@@ -184,9 +194,9 @@ def test_export(file_name):
 def __main__():
     # Uncomment the function you would like to run
     
-    #integrate_normal_orbit()
+    integrate_normal_orbit()
     #integrate_dyn_fric()
-    plot_dps()
+    #plot_dps()
     #vary_potential()
     #animate_orbit()
     #select_particles()
